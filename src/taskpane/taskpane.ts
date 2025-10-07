@@ -18,7 +18,7 @@ const inputSettings = Object.fromEntries(Object.keys(defaultSettings).map((setti
 })) as defaultSettingsType;
 inputSettings.canvas.left_padding += 50;
 inputSettings.canvas.lower_padding += 50;
-const aggregations = { numerators: "sum" };
+const aggregations = { numerators: "sum", denominators: "sum" };
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
@@ -26,7 +26,9 @@ Office.onReady((info) => {
     document.getElementById("app-body").style.display = "flex";
     document.getElementById("create-plot").onclick = () => tryCatch(createPlot);
     // Populate table selector when dropdown is clicked
-    document.getElementById("table-selector").onclick = () => tryCatch(updateTableSelector);
+    // Populate column selectors when table selection changes
+    document.getElementById("table-selector").onclick = () => {tryCatch(updateTableSelector); tryCatch(updateColumnSelectors)};
+    // Initial population of table selector
     tryCatch(updateTableSelector);
   }
 });
@@ -63,15 +65,61 @@ async function updateTableSelector() {
   });
 }
 
+async function updateColumnSelectors() {
+  await Excel.run(async (context) => {
+    const currentWorksheet = context.workbook.worksheets.getActiveWorksheet();
+    const selectedTableName = (document.getElementById("table-selector") as HTMLSelectElement).value;
+    if (!selectedTableName) {
+      throw new Error("No table selected");
+    }
+    const table = currentWorksheet.tables.getItem(selectedTableName);
+    const columns = table.columns.load("items/name");
+    await context.sync();
+    const categorySelector = document.getElementById("category-selector") as HTMLSelectElement;
+    const numeratorSelector = document.getElementById("numerator-selector") as HTMLSelectElement;
+    const denominatorSelector = document.getElementById("denominator-selector") as HTMLSelectElement;
+    categorySelector.innerHTML = '<option value="" disabled selected>Select category</option>';
+    numeratorSelector.innerHTML = '<option value="" disabled selected>Select numerator</option>';
+    denominatorSelector.innerHTML = '<option value="" disabled selected>Select denominator</option>';
+    columns.items.forEach(column => {
+      const option1 = document.createElement("option");
+      option1.value = column.name;
+      option1.text = column.name;
+      categorySelector.appendChild(option1);
+
+      const option2 = document.createElement("option");
+      option2.value = column.name;
+      option2.text = column.name;
+      numeratorSelector.appendChild(option2);
+
+      const option3 = document.createElement("option");
+      option3.value = column.name;
+      option3.text = column.name;
+      denominatorSelector.appendChild(option3);
+    });
+  });
+}
+
 async function createPlot() {
   await Excel.run(async (context) => {
     const currentWorksheet = context.workbook.worksheets.getActiveWorksheet();
-    const table = currentWorksheet.tables.getItem("Table1");
-    const categoryColumn = table.columns.getItem("categories").getDataBodyRange().load("values");
-    const numeratorsColumn = table.columns.getItem("numerators").getDataBodyRange().load("values");
+    const selectedTableName = (document.getElementById("table-selector") as HTMLSelectElement).value;
+    if (!selectedTableName) {
+      throw new Error("No table selected");
+    }
+    const table = currentWorksheet.tables.getItem(selectedTableName);
+    const selectedCategoryColumn = (document.getElementById("category-selector") as HTMLSelectElement).value;
+    const selectedNumeratorColumn = (document.getElementById("numerator-selector") as HTMLSelectElement).value;
+    const selectedDenominatorColumn = (document.getElementById("denominator-selector") as HTMLSelectElement).value;
+
+    const categoryColumn = table.columns.getItem(selectedCategoryColumn).getDataBodyRange().load("values");
+    const numeratorsColumn = table.columns.getItem(selectedNumeratorColumn).getDataBodyRange().load("values");
+    const denominatorsColumn = table.columns.getItem(selectedDenominatorColumn).getDataBodyRange().load("values");
     await context.sync();
 
-    const rawData = categoryColumn.values.flat().map((cat, i) => ({categories: fromExcelDate(cat), numerators: numeratorsColumn.values.flat()[i]}));
+    const rawData = categoryColumn.values.flat().map((cat, i) => ({
+      categories: fromExcelDate(cat), numerators: numeratorsColumn.values.flat()[i], denominators: denominatorsColumn.values.flat()[i]
+    }));
 
     var updateArgs = {
       dataViews: makeUpdateValues(rawData, inputSettings, aggregations).dataViews,
