@@ -1,6 +1,8 @@
 import { makeConstructorArgs, makeUpdateValues } from "../utilities/commonUtils";
-import { Visual } from "../PowerBI-SPC/src/visual";
-import { defaultSettings, type defaultSettingsType } from "../PowerBI-SPC/src/settings";
+import { Visual as spcVisualClass } from "../PowerBI-SPC/src/visual";
+import { Visual as funnelVisualClass } from "../PowerBI-Funnels/src/visual";
+import { defaultSettings as spcDefaultSettings, type defaultSettingsType as spcDefaultSettingsType } from "../PowerBI-SPC/src/settings";
+import { defaultSettings as funnelDefaultSettings, type defaultSettingsType as funnelDefaultSettingsType } from "../PowerBI-Funnels/src/settings";
 import * as d3 from "../PowerBI-SPC/src/D3 Plotting Functions/D3 Modules"
 
 const spcDiv = d3.select(document.body)
@@ -9,15 +11,31 @@ const spcDiv = d3.select(document.body)
                   .attr("hidden", true)
                   .node();
 
-const spcVisual = new Visual(makeConstructorArgs(spcDiv));
+const funnelDiv = d3.select(document.body)
+                    .append('div')
+                    .classed('funnel-container', true)
+                    .attr("hidden", true)
+                    .node();
 
-const inputSettings = Object.fromEntries(Object.keys(defaultSettings).map((settingGroupName) => {
-  return [settingGroupName, Object.fromEntries(Object.keys(defaultSettings[settingGroupName]).map((settingName) => {
-    return [settingName, defaultSettings[settingGroupName][settingName]["default"]];
+const spcVisual = new spcVisualClass(makeConstructorArgs(spcDiv));
+const funnelVisual = new funnelVisualClass(makeConstructorArgs(funnelDiv));
+
+const spcInputSettings = Object.fromEntries(Object.keys(spcDefaultSettings).map((settingGroupName) => {
+  return [settingGroupName, Object.fromEntries(Object.keys(spcDefaultSettings[settingGroupName]).map((settingName) => {
+    return [settingName, spcDefaultSettings[settingGroupName][settingName]["default"]];
   }))];
-})) as defaultSettingsType;
-inputSettings.canvas.left_padding += 50;
-inputSettings.canvas.lower_padding += 50;
+})) as spcDefaultSettingsType;
+spcInputSettings.canvas.left_padding += 50;
+spcInputSettings.canvas.lower_padding += 50;
+
+const funnelInputSettings = Object.fromEntries(Object.keys(funnelDefaultSettings).map((settingGroupName) => {
+  return [settingGroupName, Object.fromEntries(Object.keys(funnelDefaultSettings[settingGroupName]).map((settingName) => {
+    return [settingName, funnelDefaultSettings[settingGroupName][settingName]["default"]];
+  }))];
+})) as funnelDefaultSettingsType;
+funnelInputSettings.canvas.left_padding += 50;
+funnelInputSettings.canvas.lower_padding += 50;
+
 const aggregations = { numerators: "sum", denominators: "sum" };
 
 Office.onReady((info) => {
@@ -117,27 +135,33 @@ async function createPlot() {
     const denominatorsColumn = table.columns.getItem(selectedDenominatorColumn).getDataBodyRange().load("values");
     await context.sync();
 
+    const controlChartType = (document.getElementById("controlchart-selector") as HTMLSelectElement).value;
+
     const rawData = categoryColumn.values.flat().map((cat, i) => ({
-      categories: fromExcelDate(cat), numerators: numeratorsColumn.values.flat()[i], denominators: denominatorsColumn.values.flat()[i]
+      categories: controlChartType === "spc" ? fromExcelDate(cat) : cat,
+      numerators: numeratorsColumn.values.flat()[i],
+      denominators: denominatorsColumn.values.flat()[i]
     }));
 
     var updateArgs = {
-      dataViews: makeUpdateValues(rawData, inputSettings, aggregations).dataViews,
+      dataViews: makeUpdateValues(rawData, controlChartType === "spc" ? spcInputSettings : funnelInputSettings, aggregations).dataViews,
       viewport: { width: 640, height: 480 },
       type: 2,
       headless: true,
       frontend: true
     };
 
-    spcVisual.update(updateArgs as any);
-    spcVisual.svg
+    var currVisual = controlChartType === "spc" ? spcVisual : funnelVisual;
+
+    currVisual.update(updateArgs as any);
+    currVisual.svg
               .append("rect")
               .attr("width", "100%")
               .attr("height", "100%")
               .attr("fill", "white")
               .lower();
 
-    var image = currentWorksheet.shapes.addImage(btoa(spcVisual.svg.node().outerHTML));
+    var image = currentWorksheet.shapes.addImage(btoa(currVisual.svg.node().outerHTML));
     image.name = "Image";
     image.top = 10;
     image.left = 200;

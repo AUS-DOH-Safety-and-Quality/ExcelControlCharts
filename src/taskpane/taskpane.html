@@ -23,11 +23,14 @@
 <body class="ms-font-m ms-welcome ms-Fabric">
     <header class="ms-welcome__header ms-bgColor-neutralLighter">
         <img width="90" height="90" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" />
-        <!-- A dropdown for selecting target table -->
+        <!-- Dropdown to toggle between spc and funnel -->
+        <select title="Select a controlchart" id="controlchart-selector" class="ms-Dropdown">
+            <option value="spc">SPC Chart</option>
+            <option value="funnel">Funnel Chart</option>
+        </select>
         <select title="Select a table" id="table-selector" class="ms-Dropdown">
             <option value="" disabled selected>Select a table</option>
         </select>
-        <div style="display: flex; gap: 10px; align-items: center; margin-top: 16px;">
             <select title="Select category column" id="category-selector" class="ms-Dropdown">
                 <option value="" disabled selected>Select category</option>
             </select>
@@ -37,7 +40,6 @@
             <select title="Select denominator column" id="denominator-selector" class="ms-Dropdown">
                 <option value="" disabled selected>Select denominator</option>
             </select>
-        </div>
     </header>
     <section id="sideload-msg" class="ms-welcome__main">
         <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see app body.</h2>

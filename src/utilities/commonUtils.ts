@@ -1,7 +1,4 @@
-import type powerbi from "../PowerBI-SPC/node_modules/powerbi-visuals-api";
-type VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
-
-const makeConstructorArgs = function(element: HTMLElement): VisualConstructorOptions {
+const makeConstructorArgs = function(element: HTMLElement) {
   return {
     element: element,
     host: {
