@@ -1,7 +1,7 @@
-import type powerbi from "../../PowerBI-SPC/node_modules/powerbi-visuals-api";
+import type powerbi from "../PowerBI-SPC/node_modules/powerbi-visuals-api";
 type VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 
-export default function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
+const makeConstructorArgs = function(element: HTMLElement): VisualConstructorOptions {
   return {
     element: element,
     host: {
@@ -124,10 +124,7 @@ const aggregateColumn = function(column, aggregation) {
   }
 }
 
-function makeUpdateValues(rawData, inputSettings, aggregations, crosstalkFilters) {
-  if (crosstalkFilters) {
-    rawData = rawData.filter(d => crosstalkFilters.includes(d.crosstalkIdentities));
-  }
+const makeUpdateValues = function(rawData, inputSettings, aggregations) {
   // Custom groupBy implementation to replace Object.groupBy
   function groupBy(array, keyFn) {
     return array.reduce((result, item) => {
@@ -140,10 +137,6 @@ function makeUpdateValues(rawData, inputSettings, aggregations, crosstalkFilters
 
   var dataGrouped = groupBy(rawData, d => d.categories);
   Object.freeze(dataGrouped);
-  var identitiesGrouped = [];
-  for (var group in dataGrouped) {
-    identitiesGrouped.push([group, dataGrouped[group].map(d => d.crosstalkIdentities)]);
-  }
 
   var args = {
     categories: [{
@@ -151,11 +144,10 @@ function makeUpdateValues(rawData, inputSettings, aggregations, crosstalkFilters
       values: [],
       objects: []
     }],
-    values: [],
-    crosstalkIdentities: Object.fromEntries(identitiesGrouped)
+    values: []
   };
 
-  var valueNames = Object.keys(rawData[0]).filter(k => !["categories", "crosstalkIdentities"].includes(k));
+  var valueNames = Object.keys(rawData[0]).filter(k => !["categories"].includes(k));
 
   args.values = valueNames.map(name => ({
     source: { roles: {[name]: true} },
@@ -179,7 +171,8 @@ function makeUpdateValues(rawData, inputSettings, aggregations, crosstalkFilters
         categories: args.categories,
         values: args.values
       }
-    }],
-    crosstalkIdentities: args.crosstalkIdentities
+    }]
   };
 }
+
+export { makeConstructorArgs, makeUpdateValues };

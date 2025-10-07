@@ -1,15 +1,24 @@
-import makeConstructorArgs from "../utilities/commonUtils";
-import { Visual } from "../../PowerBI-SPC/src/visual";
-import * as d3 from "../../PowerBI-SPC/src/D3 Plotting Functions/D3 Modules"
-const dummyData = [{"categorical":{"categories":[{"source":{"roles":{"key":true},"type":{"temporal":{"underlyingType":519}}},"values":["Mon Jan 01 2024 08:00:00 GMT+0800","Thu Feb 01 2024 08:00:00 GMT+0800","Fri Mar 01 2024 08:00:00 GMT+0800","Mon Apr 01 2024 08:00:00 GMT+0800","Wed May 01 2024 08:00:00 GMT+0800","Sat Jun 01 2024 08:00:00 GMT+0800","Mon Jul 01 2024 08:00:00 GMT+0800","Thu Aug 01 2024 08:00:00 GMT+0800","Sun Sep 01 2024 08:00:00 GMT+0800","Tue Oct 01 2024 08:00:00 GMT+0800","Fri Nov 01 2024 08:00:00 GMT+0800","Sun Dec 01 2024 08:00:00 GMT+0800","Wed Jan 01 2025 08:00:00 GMT+0800","Sat Feb 01 2025 08:00:00 GMT+0800","Sat Mar 01 2025 08:00:00 GMT+0800","Tue Apr 01 2025 08:00:00 GMT+0800","Thu May 01 2025 08:00:00 GMT+0800","Sun Jun 01 2025 08:00:00 GMT+0800","Tue Jul 01 2025 08:00:00 GMT+0800","Fri Aug 01 2025 08:00:00 GMT+0800","Mon Sep 01 2025 08:00:00 GMT+0800","Wed Oct 01 2025 08:00:00 GMT+0800","Sat Nov 01 2025 08:00:00 GMT+0800","Mon Dec 01 2025 08:00:00 GMT+0800"],"objects":[{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}},{"canvas":{"show_errors":true,"lower_padding":60,"upper_padding":10,"left_padding":60,"right_padding":10},"spc":{},"outliers":{},"nhs_icons":{},"scatter":{},"lines":{},"x_axis":{},"y_axis":{},"dates":{},"labels":{}}]}],"values":[{"source":{"roles":{"numerators":true}},"values":[0.0673,0.7948,1.5177,-2.1649,-0.2144,0.1286,0.2253,-2.1378,-2.056,-2.0566,-0.0523,-0.7576,-0.0093,0.7548,0.7776,0.5302,-0.2699,-0.5413,0.6965,0.3852,-0.8818,-1.525,0.5477,2.944]}]}}]
+import { makeConstructorArgs, makeUpdateValues } from "../utilities/commonUtils";
+import { Visual } from "../PowerBI-SPC/src/visual";
+import { defaultSettings, type defaultSettingsType } from "../PowerBI-SPC/src/settings";
+import * as d3 from "../PowerBI-SPC/src/D3 Plotting Functions/D3 Modules"
 
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
- * See LICENSE in the project root for license information.
- */
+const spcDiv = d3.select(document.body)
+                  .append('div')
+                  .classed('spc-container', true)
+                  .attr("hidden", true)
+                  .node();
 
-/* global console, document, Excel, Office */
+const spcVisual = new Visual(makeConstructorArgs(spcDiv));
 
+const inputSettings = Object.fromEntries(Object.keys(defaultSettings).map((settingGroupName) => {
+  return [settingGroupName, Object.fromEntries(Object.keys(defaultSettings[settingGroupName]).map((settingName) => {
+    return [settingName, defaultSettings[settingGroupName][settingName]["default"]];
+  }))];
+})) as defaultSettingsType;
+inputSettings.canvas.left_padding += 50;
+inputSettings.canvas.lower_padding += 50;
+const aggregations = { numerators: "sum" };
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
@@ -19,20 +28,22 @@ Office.onReady((info) => {
   }
 });
 
+function fromExcelDate(excelDate: number): Date {
+  return new Date((excelDate - (25567 + 2)) * 86400 * 1000);
+}
+
 async function createPlot() {
   await Excel.run(async (context) => {
     const currentWorksheet = context.workbook.worksheets.getActiveWorksheet();
+    const table = currentWorksheet.tables.getItem("Table1");
+    const categoryColumn = table.columns.getItem("categories").getDataBodyRange().load("values");
+    const numeratorsColumn = table.columns.getItem("numerators").getDataBodyRange().load("values");
+    await context.sync();
 
-    const spcDiv = d3.select(document.body)
-                      .append('div')
-                      .classed('spc-container', true)
-                      .attr("hidden", true)
-                      .node();
-
-    const spcVisual = new Visual(makeConstructorArgs(spcDiv));
+    const rawData = categoryColumn.values.flat().map((cat, i) => ({categories: fromExcelDate(cat), numerators: numeratorsColumn.values.flat()[i]}));
 
     var updateArgs = {
-      dataViews: dummyData,
+      dataViews: makeUpdateValues(rawData, inputSettings, aggregations).dataViews,
       viewport: { width: 640, height: 480 },
       type: 2,
       headless: true,
