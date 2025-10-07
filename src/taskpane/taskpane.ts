@@ -34,7 +34,7 @@ const funnelInputSettings = Object.fromEntries(Object.keys(funnelDefaultSettings
   }))];
 })) as funnelDefaultSettingsType;
 funnelInputSettings.canvas.left_padding += 50;
-funnelInputSettings.canvas.lower_padding += 50;
+funnelInputSettings.canvas.lower_padding += 25;
 
 const aggregations = { numerators: "sum", denominators: "sum" };
 
@@ -146,9 +146,9 @@ async function createPlot() {
     var updateArgs = {
       dataViews: makeUpdateValues(rawData, controlChartType === "spc" ? spcInputSettings : funnelInputSettings, aggregations).dataViews,
       viewport: { width: 640, height: 480 },
-      type: 2,
-      headless: true,
-      frontend: true
+      type: 2//,
+      //headless: true,
+      //frontend: true
     };
 
     var currVisual = controlChartType === "spc" ? spcVisual : funnelVisual;
