@@ -27,7 +27,23 @@
   },
   "dependencies": {
     "core-js": "^3.36.0",
-    "regenerator-runtime": "^0.14.1"
+    "regenerator-runtime": "^0.14.1",
+
+    "@stdlib/math-base-special-gammaln": "^0.2.2",
+    "d3-array": "^3.2.4",
+    "d3-axis": "^3.0.0",
+    "d3-drag": "^3.0.0",
+    "d3-scale": "^4.0.2",
+    "d3-selection": "^3.0.0",
+    "d3-shape": "^3.2.0",
+    "powerbi-visuals-api": "~5.1.0",
+    "powerbi-visuals-utils-typeutils": "^6.0.3",
+
+    "@stdlib/stats-base-dists-chisquare-quantile": "^0.2.2",
+    "@stdlib/stats-base-dists-normal-cdf": "^0.2.2",
+    "@stdlib/stats-base-dists-normal-quantile": "^0.2.2",
+    "powerbi-visuals-utils-dataviewutils": "^6.1.0"
+
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
@@ -53,7 +69,15 @@
     "typescript": "^5.4.2",
     "webpack": "^5.95.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "5.2.2"
+    "webpack-dev-server": "5.2.2",
+
+    "@types/d3-array": "^3.2.2",
+    "@types/d3-axis": "^3.0.6",
+    "@types/d3-drag": "^3.0.7",
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-shape": "^3.1.7"
+
   },
   "overrides": {
     "tmp": "^0.2.4"

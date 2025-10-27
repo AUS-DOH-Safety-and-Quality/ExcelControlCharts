@@ -3,19 +3,16 @@ import { Visual as spcVisualClass } from "../PowerBI-SPC/src/visual";
 import { Visual as funnelVisualClass } from "../PowerBI-Funnels/src/visual";
 import { defaultSettings as spcDefaultSettings, type defaultSettingsType as spcDefaultSettingsType } from "../PowerBI-SPC/src/settings";
 import { defaultSettings as funnelDefaultSettings, type defaultSettingsType as funnelDefaultSettingsType } from "../PowerBI-Funnels/src/settings";
-import * as d3 from "../PowerBI-SPC/src/D3 Plotting Functions/D3 Modules"
 
-const spcDiv = d3.select(document.body)
-                  .append('div')
-                  .classed('spc-container', true)
-                  .attr("hidden", true)
-                  .node();
+const spcDiv = document.createElement('div');
+spcDiv.className = 'spc-container';
+spcDiv.setAttribute("hidden", "true");
+document.body.appendChild(spcDiv);
 
-const funnelDiv = d3.select(document.body)
-                    .append('div')
-                    .classed('funnel-container', true)
-                    .attr("hidden", true)
-                    .node();
+const funnelDiv = document.createElement('div');
+funnelDiv.className = 'funnel-container';
+funnelDiv.setAttribute("hidden", "true");
+document.body.appendChild(funnelDiv);
 
 const spcVisual = new spcVisualClass(makeConstructorArgs(spcDiv));
 const funnelVisual = new funnelVisualClass(makeConstructorArgs(funnelDiv));
