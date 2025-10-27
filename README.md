@@ -34,4 +34,12 @@ VS Code also provides good support for the plugin development workflow. Start by
 
 Next, create a new `.vscode` folder in the root of the repo (if one does not already exist) and add the files (or append their contents to your own) in the [assets/vscode-configs](assets/vscode-configs) folder to it. This will provide a launch configuration for debugging the plugin in Excel.
 
-You can launch the plugin with debugging support by pressing `F5` or selecting the "Preview Your Office Add-In" option from the Run menu. This will perform the same steps as the `npm run start` command, but will also attach a debugger to the plugin - allowing for better support of logging and debugging.
+You can launch the plugin with debugging support by pressing `F5` or selecting the "Preview Your Office Add-In" option from the Run menu:
+
+<img width="628" height="281" alt="image" src="https://github.com/user-attachments/assets/28895eaf-f281-4cf1-9ed4-7d60deb6538b" />
+
+
+This will perform the same steps as the `npm run start` command, but will also attach a debugger to the plugin - allowing for better support of logging and debugging:
+
+<img width="1129" height="338" alt="image" src="https://github.com/user-attachments/assets/7b95172d-19d8-4710-b50e-b08e96974802" />
+
