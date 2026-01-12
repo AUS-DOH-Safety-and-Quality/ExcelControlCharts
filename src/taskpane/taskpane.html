@@ -8,45 +8,198 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Contoso Task Pane Add-in</title>
+    <title>Excel Control Charts</title>
 
     <!-- Office JavaScript API -->
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
 
-    <!-- For more information on Fluent UI, visit https://developer.microsoft.com/fluentui#/. -->
-    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
-
+    
     <!-- Template styles -->
     <link href="taskpane.css" rel="stylesheet" type="text/css" />
 </head>
 
-<body class="ms-font-m ms-welcome ms-Fabric">
-    <header class="ms-welcome__header ms-bgColor-neutralLighter">
-        <img width="90" height="90" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" />
-    </header>
-    <section id="sideload-msg" class="ms-welcome__main">
-        <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see app body.</h2>
-    </section>
-    <main id="app-body" class="ms-welcome__main" style="display: none;">
-        <!-- Dropdown to toggle between spc and funnel -->
-        <select title="Select a controlchart" id="controlchart-selector" class="ms-Dropdown">
-            <option value="spc">SPC Chart</option>
-            <option value="funnel">Funnel Chart</option>
+<body class="app-root">
+
+<header class="app-header">
+    <img class="app-logo" width="64" height="64" src="../../assets/logo-filled.png" alt="Excel Control Charts logo" />
+    <div class="app-title-wrap">
+        <h1 class="app-title">Excel Control Charts</h1>
+        <p class="app-subtitle">Create SPC and Funnel charts in Excel</p>
+    </div>
+</header>
+
+
+<section id="sideload-msg" class="sideload">
+    <h2>Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see the app.</h2>
+</section>
+
+
+
+<!-- Main form area -->
+<main id="app-body" class="app-main" style="display: none;">
+
+<!-- Div for entire chart creation (including preview) -->
+<div class="card">
+
+<h2 class="card-title">Create a control chart</h2>
+
+<!-- Tabs header -->
+<div class="tabs" role="tablist" aria-label="Chart options">
+        <button id="tab-data" class="tab tab--active" role="tab" aria-selected="true" aria-controls="panel-data" tabindex="0">Data / Inputs</button>
+        <button id="tab-settings" class="tab" role="tab" aria-selected="false" aria-controls="panel-settings" tabindex="-1">Settings</button>
+</div>
+
+<div class="tabpanels">
+<!-- Panel: Data / Inputs (existing dropdowns) -->
+<section id="panel-data" class="tabpanel" role="tabpanel" aria-labelledby="tab-data">
+<!-- Div Contains all the dropdowns -->
+<div class="form-grid">
+
+<!-- Chart type selector (segmented toggle) -->
+<div class="field field--charttype">
+    <label id="charttype-label">Chart type</label>
+    <div class="charttype-buttons" role="group" aria-labelledby="charttype-label">
+        <button type="button" id="toggle-spc" class="charttype-btn is-active" data-value="spc" aria-pressed="true">SPC</button>
+        <button type="button" id="toggle-funnel" class="charttype-btn" data-value="funnel" aria-pressed="false">Funnel</button>
+    </div>
+    <input type="hidden" id="controlchart-selector" value="spc" />
+</div>
+
+    <!-- Worksheet selector -->
+    <div class="field">
+        <label for="worksheet-selector">Worksheet</label>
+        <select title="Select a worksheet" id="worksheet-selector" class="select">
+            <option value="" disabled selected>Select a worksheet</option>
         </select>
-        <select title="Select a table" id="table-selector" class="ms-Dropdown">
+    </div>
+
+    <!-- Table selector -->
+    <div class="field">
+        <label for="table-selector">Table</label>
+        <select title="Select a table" id="table-selector" class="select">
             <option value="" disabled selected>Select a table</option>
         </select>
-            <select title="Select category column" id="category-selector" class="ms-Dropdown">
-                <option value="" disabled selected>Select category</option>
-            </select>
-            <select title="Select numerator column" id="numerator-selector" class="ms-Dropdown">
-                <option value="" disabled selected>Select numerator</option>
-            </select>
-            <select title="Select denominator column" id="denominator-selector" class="ms-Dropdown">
-                <option value="" disabled selected>Select denominator</option>
-            </select>
-        <button class="ms-Button" id="create-plot">Create Plot</button><br/><br/>
-    </main>
+    </div>
+
+    <!-- Category selector -->
+    <div class="field">
+        <label for="category-selector">Category column</label>
+        <select title="Select category column" id="category-selector" class="select">
+            <option value="" disabled selected>Select category</option>
+        </select>
+    </div>
+
+    <!-- Numerator selector -->
+    <div class="field">
+        <label for="numerator-selector">Numerator column</label>
+        <select title="Select numerator column" id="numerator-selector" class="select">
+            <option value="" disabled selected>Select numerator</option>
+        </select>
+    </div>
+
+    <!-- Denominator selector -->
+    <div class="field" id="denominator-selector-field">
+        <label for="denominator-selector">Denominator column</label>
+        <select title="Select denominator column" id="denominator-selector" class="select">
+            <option value="" disabled selected>Select denominator</option>
+        </select>
+    </div>
+
+    <!-- SD selector (Xbar only) -->
+    <div class="field" id="sd-selector-field" hidden>
+        <label for="sd-selector">SD column (Xbar)</label>
+        <select title="Select SD column (required for Xbar)" id="sd-selector" class="select">
+            <option value="" disabled selected>Select SD (Xbar)</option>
+        </select>
+    </div>
+</div>
+<!-- End of dropdown options -->
+</section>
+
+                                            <!-- Panel: Settings (styling and behavior) -->
+                <section id="panel-settings" class="tabpanel" role="tabpanel" aria-labelledby="tab-settings" hidden>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="setting-chart-title">Chart title</label>
+                            <input id="setting-chart-title" class="input" type="text" placeholder="e.g., Monthly Admissions SPC" />
+                        </div>
+                        <div class="field">
+                            <label for="setting-title-size">Title font size</label>
+                            <input id="setting-title-size" class="input" type="number" min="10" max="48" step="1" value="16" />
+                        </div>
+                        <div class="field">
+                            <label for="setting-title-color">Title color</label>
+                            <input id="setting-title-color" class="color" type="color" value="#111111" />
+                        </div>
+                        <div class="field">
+                            <label for="setting-show-labels">Show value labels</label>
+                            <select id="setting-show-labels" class="select" title="Show value labels">
+                                <option value="auto" selected>Auto (visual default)</option>
+                                <option value="on">On</option>
+                                <option value="off">Off</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="setting-theme">Theme</label>
+                            <select id="setting-theme" class="select" title="Theme">
+                                <option value="system" selected>Match system</option>
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="setting-width">Preview width</label>
+                            <select id="setting-width" class="select" title="Preview width">
+                                <option value="auto" selected>Auto (fit preview)</option>
+                                <option value="480">480px</option>
+                                <option value="640">640px</option>
+                            </select>
+                        </div>
+                    </div>
+
+
+<!------------------------  Dropdown settings ------------------------>
+<!-- Data settings dropdown (rendered programmatically) -->
+<details class="form-details" id="spc-data-settings">
+
+    <summary>
+        <span>Data Settings</span>
+        <span class="chevron" aria-hidden="true"></span>
+    </summary>
+
+    <!-- Dropdowns are "injected" from taskpane.ts -->
+    <div id="spc-data-settings-grid" class="form-grid"></div>
+</details>
+
+
+<p class="hint">Settings affect preview only for now and won’t change the Excel image yet.</p>
+                </section>
+</div>
+
+<!-- Div that contains the Preview and Create plot buttons -->
+<div class="actions">
+    <button class="btn" id="preview-plot" disabled>Preview</button>
+    <button class="btn btn-primary" id="create-plot" disabled>Create plot</button>
+</div>
+
+<div class="preview-card">
+    <div class="preview-header">
+        <span>Preview</span>
+        <span class="preview-hint">Renders in the side pane only</span>
+    </div>
+    <div id="preview-container" class="preview-container">
+        <!-- Chart preview will render here -->
+    </div>
+</div>
+
+<p class="hint">Tip: Pick a worksheet, then click “Table” to load tables from that worksheet. Columns will populate after you choose a table.</p>
+</div>
+<!-- End of chart creation div -->
+
+
+</main>
+<!-- End main form area -->
+
 </body>
 
 </html>
