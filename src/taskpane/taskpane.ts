@@ -2,8 +2,8 @@ import { makeConstructorArgs, makeUpdateValues } from "../utilities/commonUtils"
 import { renderSpcDataSettings } from "../utilities/renderSpcDataSettings";
 import { Visual as spcVisualClass } from "../PowerBI-SPC/src/visual";
 import { Visual as funnelVisualClass } from "../PowerBI-Funnels/src/visual";
-import { defaultSettings as spcDefaultSettings, type defaultSettingsType as spcDefaultSettingsType } from "../PowerBI-SPC/src/settings";
-import { defaultSettings as funnelDefaultSettings, type defaultSettingsType as funnelDefaultSettingsType } from "../PowerBI-Funnels/src/settings";
+import { defaultSettingsString as spcDefaultSettingsString, type settingsValueType as spcDefaultSettingsType } from "../PowerBI-SPC/src/settings";
+import { defaultSettingsString as funnelDefaultSettingsString, type settingsValueType as funnelDefaultSettingsType } from "../PowerBI-Funnels/src/settings";
 
 
 const spcDiv = document.createElement('div');
@@ -17,19 +17,11 @@ funnelDiv.setAttribute("hidden", "true");
 const spcVisual = new spcVisualClass(makeConstructorArgs(spcDiv));
 const funnelVisual = new funnelVisualClass(makeConstructorArgs(funnelDiv));
 
-const spcInputSettings = Object.fromEntries(Object.keys(spcDefaultSettings).map((settingGroupName) => {
-  return [settingGroupName, Object.fromEntries(Object.keys(spcDefaultSettings[settingGroupName]).map((settingName) => {
-    return [settingName, spcDefaultSettings[settingGroupName][settingName]["default"]];
-  }))];
-})) as spcDefaultSettingsType;
+const spcInputSettings = JSON.parse(spcDefaultSettingsString) as spcDefaultSettingsType;
 spcInputSettings.canvas.left_padding += 50;
 spcInputSettings.canvas.lower_padding += 50;
 
-const funnelInputSettings = Object.fromEntries(Object.keys(funnelDefaultSettings).map((settingGroupName) => {
-  return [settingGroupName, Object.fromEntries(Object.keys(funnelDefaultSettings[settingGroupName]).map((settingName) => {
-    return [settingName, funnelDefaultSettings[settingGroupName][settingName]["default"]];
-  }))];
-})) as funnelDefaultSettingsType;
+const funnelInputSettings = JSON.parse(funnelDefaultSettingsString) as funnelDefaultSettingsType;
 funnelInputSettings.canvas.left_padding += 50;
 funnelInputSettings.canvas.lower_padding += 25;
 
@@ -266,7 +258,7 @@ Office.onReady((info) => {
   numSel.onchange = () => updateActionButtonsEnabledState();
   denSel.onchange = () => updateActionButtonsEnabledState();
   sdSel && (sdSel.onchange = () => updateActionButtonsEnabledState());
-  
+
   // Tabs: Data/Inputs vs Settings
   const tabData = document.getElementById("tab-data") as HTMLButtonElement;
   const tabSettings = document.getElementById("tab-settings") as HTMLButtonElement;
@@ -744,7 +736,7 @@ async function previewPlot() {
   const titleColorPrev = (document.getElementById('setting-title-color') as HTMLInputElement)?.value || '#111111';
 
     if (titleTextPreview) {
-      const plotProps: any = currVisual.viewModel?.plotProperties || {};
+      const plotProps: any = (currVisual.viewModel?.plotProperties ?? currVisual?.plotProperties) || {};
       const topPad = plotProps.yAxis?.end_padding ?? 0;
       const descenderPrev = 0.2 * titleSizePrev;
       const gapPrev = 2;

@@ -26,23 +26,16 @@
     "watch": "webpack --mode development --watch"
   },
   "dependencies": {
-    "@stdlib/math-base-special-gammaln": "^0.2.2",
-    "@stdlib/stats-base-dists-chisquare-quantile": "^0.2.2",
-    "@stdlib/stats-base-dists-normal-cdf": "^0.2.2",
-    "@stdlib/stats-base-dists-normal-quantile": "^0.2.2",
     "core-js": "^3.36.0",
-    "d3-array": "^3.2.4",
     "d3-axis": "^3.0.0",
     "d3-drag": "^3.0.0",
     "d3-scale": "^4.0.2",
     "d3-selection": "^3.0.0",
     "d3-shape": "^3.2.0",
-    "powerbi-visuals-api": "~5.1.0",
-    "powerbi-visuals-utils-dataviewutils": "^6.1.0",
-    "powerbi-visuals-utils-typeutils": "^6.0.3",
     "regenerator-runtime": "^0.14.1"
   },
   "devDependencies": {
+    "powerbi-visuals-api": "~5.1.0",
     "@babel/core": "^7.24.0",
     "@babel/preset-env": "^7.25.4",
     "@babel/preset-typescript": "^7.23.3",
