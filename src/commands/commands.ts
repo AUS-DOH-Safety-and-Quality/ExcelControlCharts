@@ -1,3 +1,5 @@
+/// <reference types="@types/office-js" />
+
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
  * See LICENSE in the project root for license information.
@@ -22,10 +24,12 @@ function action(event: Office.AddinCommands.Event) {
   };
 
   // Show a notification message.
-  Office.context.mailbox.item.notificationMessages.replaceAsync(
-    "ActionPerformanceNotification",
-    message
-  );
+  if (Office.context.mailbox?.item) {
+    Office.context.mailbox.item.notificationMessages.replaceAsync(
+      "ActionPerformanceNotification",
+      message
+    );
+  }
 
   // Be sure to indicate when the add-in command function is complete.
   event.completed();
