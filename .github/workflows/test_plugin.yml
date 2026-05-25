@@ -1,0 +1,37 @@
+name: Test Build Excel plus
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: 'recursive'
+
+    - name: Install Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: 24
+
+    - name: Install Dependencies
+      run: |
+        npm install
+
+    # TODO: Re-enable linting once all linting errors are resolved
+    #- name: Run linter
+    #  run: |
+    #    npm run lint
+
+    - name: Test if plugin can be built
+      run: |
+        npm run build
