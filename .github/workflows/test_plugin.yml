@@ -1,4 +1,4 @@
-name: Test Build Excel plus
+name: Test Build Excel plugin
 
 on:
   push:
@@ -27,10 +27,9 @@ jobs:
       run: |
         npm install
 
-    # TODO: Re-enable linting once all linting errors are resolved
-    #- name: Run linter
-    #  run: |
-    #    npm run lint
+    - name: Run linter
+      run: |
+        npm run lint
 
     - name: Test if plugin can be built
       run: |
