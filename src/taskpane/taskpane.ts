@@ -1,10 +1,11 @@
+/// <reference types="@types/office-js" />
+
 import { makeConstructorArgs, makeUpdateValues } from "../utilities/commonUtils";
 import { renderSpcDataSettings } from "../utilities/renderSpcDataSettings";
 import { Visual as spcVisualClass } from "../PowerBI-SPC/src/visual";
 import { Visual as funnelVisualClass } from "../PowerBI-Funnels/src/visual";
 import { defaultSettingsString as spcDefaultSettingsString, type settingsValueType as spcDefaultSettingsType } from "../PowerBI-SPC/src/settings";
 import { defaultSettingsString as funnelDefaultSettingsString, type settingsValueType as funnelDefaultSettingsType } from "../PowerBI-Funnels/src/settings";
-
 
 const spcDiv = document.createElement('div');
 spcDiv.className = 'spc-container';
@@ -191,12 +192,12 @@ function updateSpcInputSettingsFromUi() {
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
     // Change the display of sideload message so it is hidden
-    document.getElementById("sideload-msg").style.display = "none";
+    document.getElementById("sideload-msg")!.style.display = "none";
     // Show the app body. This is the main form
-    document.getElementById("app-body").style.display = "flex";
+    document.getElementById("app-body")!.style.display = "flex";
 
-    document.getElementById("create-plot").onclick = () => tryCatch(createPlot);
-    document.getElementById("preview-plot").onclick = () => tryCatch(previewPlot);
+    document.getElementById("create-plot")!.onclick = () => tryCatch(createPlot);
+    document.getElementById("preview-plot")!.onclick = () => tryCatch(previewPlot);
 
     // Move our rendering containers inside the preview area
     const previewHost = document.getElementById("preview-container");
@@ -213,9 +214,9 @@ Office.onReady((info) => {
   // Render the Data Settings UI programmatically (reduces hard-coded HTML)
   renderSpcDataSettings();
   // Populate worksheet selector when dropdown is clicked; tables/columns depend on worksheet
-  document.getElementById("worksheet-selector").onclick = () => { tryCatch(updateWorksheetSelector); };
+  document.getElementById("worksheet-selector")!.onclick = () => { tryCatch(updateWorksheetSelector); };
   // Populate table selector when dropdown is clicked; columns update after table change
-  document.getElementById("table-selector").onclick = () => {
+  document.getElementById("table-selector")!.onclick = () => {
     tryCatch(async () => {
       await updateTableSelector();
       await updateColumnSelectors();
@@ -622,7 +623,7 @@ async function createPlot() {
   const titleColor = (document.getElementById('setting-title-color') as HTMLInputElement)?.value || '#111111';
 
     if (titleTextCreate) {
-      const plotProps: any = currVisual.viewModel?.plotProperties || {};
+      const plotProps: any = currVisual?.plotProperties || {};
       const topPad = plotProps.yAxis?.end_padding ?? 0;
       const descender = 0.2 * titleSize; // rough descender height
       const gap = 2; // small gap above plot area
@@ -638,7 +639,7 @@ async function createPlot() {
         .text(titleTextCreate);
     }
 
-    var image = currentWorksheet.shapes.addImage(btoa(currVisual.svg.node().outerHTML));
+    var image = currentWorksheet.shapes.addImage(btoa((currVisual.svg.node() as SVGSVGElement).outerHTML));
     image.name = "Image";
     image.top = 10;
     image.left = 200;
@@ -700,7 +701,7 @@ async function previewPlot() {
       return row;
     });
 
-    const previewHost = document.getElementById("preview-container");
+    const previewHost = document.getElementById("preview-container") as HTMLElement;
     const containerRect = previewHost.getBoundingClientRect();
     const padding = 8 * 2; // preview container padding
     const width = Math.max(320, Math.floor(containerRect.width - padding));
@@ -736,7 +737,7 @@ async function previewPlot() {
   const titleColorPrev = (document.getElementById('setting-title-color') as HTMLInputElement)?.value || '#111111';
 
     if (titleTextPreview) {
-      const plotProps: any = (currVisual.viewModel?.plotProperties ?? currVisual?.plotProperties) || {};
+      const plotProps: any = currVisual?.plotProperties || {};
       const topPad = plotProps.yAxis?.end_padding ?? 0;
       const descenderPrev = 0.2 * titleSizePrev;
       const gapPrev = 2;
@@ -755,10 +756,8 @@ async function previewPlot() {
 }
 
 
-
-
 /** Default helper for invoking an action and handling errors. */
-async function tryCatch(callback) {
+async function tryCatch(callback: () => Promise<void>) {
   try {
     await callback();
   } catch (error) {
