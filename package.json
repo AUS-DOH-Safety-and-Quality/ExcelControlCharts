@@ -14,9 +14,10 @@
   "scripts": {
     "build": "webpack --mode production",
     "build:dev": "webpack --mode development",
+    "build:portable": "bun run ./scripts/build-portable.ts",
     "dev-server": "webpack serve --mode development",
-    "lint": "npx eslint .",
-    "lint:fix": "npx eslint . --fix",
+    "lint": "bun x eslint .",
+    "lint:fix": "bun x eslint . --fix",
     "signin": "office-addin-dev-settings m365-account login",
     "signout": "office-addin-dev-settings m365-account logout",
     "start": "office-addin-debugging start manifest.xml",
@@ -34,6 +35,7 @@
     "regenerator-runtime": "^0.14.1"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.5",
     "@babel/preset-typescript": "^7.28.5",
@@ -45,6 +47,7 @@
     "@types/office-js": "^1.0.591",
     "@types/office-runtime": "^1.0.37",
     "@typescript-eslint/parser": "^8.59.4",
+    "adm-zip": "^0.5.12",
     "babel-loader": "^10.1.1",
     "copy-webpack-plugin": "^14.0.0",
     "eslint-plugin-office-addins": "^4.0.9",
