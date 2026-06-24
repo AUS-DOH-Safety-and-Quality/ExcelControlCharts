@@ -1,0 +1,10 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+  <circle cx='50' cy='50' r='46' fill='none' stroke='#00B0F0' stroke-width='6' />
+  <text x='25' y='80' font-family='Arial, sans-serif' font-size='35' font-weight='bold' fill='#00B0F0' text-anchor='middle'>L</text>
+    <polyline points='30,40 45,45 60,55 75,70' stroke='#A6A6A6' stroke-width='4' fill='none' />
+  <circle cx='30' cy='40' r='4' fill='#A6A6A6' />
+  <circle cx='45' cy='45' r='4' fill='#A6A6A6' />
+  <circle cx='60' cy='55' r='4' fill='#00B0F0' />
+  <circle cx='75' cy='70' r='4' fill='#00B0F0' />
+  <polygon points='70,78 83,78 83,65' fill='#00B0F0' />
+</svg>

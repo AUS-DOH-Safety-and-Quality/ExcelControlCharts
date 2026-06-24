@@ -10,7 +10,7 @@ const releaseRoot = path.join(repoRoot, "release");
 const buildRoot = path.join(releaseRoot, "_build");
 const portableZip = path.join(releaseRoot, "ExcelControlCharts-portable.zip");
 const launcherOutput = path.join(releaseRoot, "ExcelControlCharts.exe");
-const manifestUrl = process.env.PORTABLE_BASE_URL || "https://localhost:3100/";
+const manifestUrl = process.env.PORTABLE_BASE_URL;  //|| "https://localhost:3100/";
 
 type EmbeddedAssetMap = Record<string, string>;
 

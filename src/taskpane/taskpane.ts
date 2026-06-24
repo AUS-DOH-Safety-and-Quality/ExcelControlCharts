@@ -2,14 +2,16 @@
 
 import { makeConstructorArgs, makeUpdateValues } from "../utilities/commonUtils";
 import { renderSpcDataSettings } from "../utilities/renderSpcDataSettings";
+import dateSettingsToFormatOptions from "../PowerBI-SPC/src/Functions/dateSettingsToFormatOptions";
+import formatDateParts from "../PowerBI-SPC/src/Functions/formatDateParts";
 import { Visual as spcVisualClass } from "../PowerBI-SPC/src/visual";
 import { Visual as funnelVisualClass } from "../PowerBI-Funnels/src/visual";
 import {
-  defaultSettingsString as spcDefaultSettingsString,
+  defaultSettings as spcDefaultSettings,
   type settingsValueType as spcDefaultSettingsType,
 } from "../PowerBI-SPC/src/settings";
 import {
-  defaultSettingsString as funnelDefaultSettingsString,
+  defaultSettings as funnelDefaultSettings,
   type settingsValueType as funnelDefaultSettingsType,
 } from "../PowerBI-Funnels/src/settings";
 
@@ -24,19 +26,227 @@ funnelDiv.setAttribute("hidden", "true");
 const spcVisual = new spcVisualClass(makeConstructorArgs(spcDiv));
 const funnelVisual = new funnelVisualClass(makeConstructorArgs(funnelDiv));
 
-const spcInputSettings = JSON.parse(spcDefaultSettingsString) as spcDefaultSettingsType;
-spcInputSettings.canvas.left_padding += 50;
-spcInputSettings.canvas.lower_padding += 50;
+const spcInputSettings = structuredClone(spcDefaultSettings) as spcDefaultSettingsType;
+const spcBaseCanvasPadding = {
+  left: spcInputSettings.canvas.left_padding + 50,
+  lower: spcInputSettings.canvas.lower_padding + 50,
+  upper: spcInputSettings.canvas.upper_padding,
+  right: spcInputSettings.canvas.right_padding,
+};
+spcInputSettings.canvas.left_padding = spcBaseCanvasPadding.left;
+spcInputSettings.canvas.lower_padding = spcBaseCanvasPadding.lower;
 
-const funnelInputSettings = JSON.parse(funnelDefaultSettingsString) as funnelDefaultSettingsType;
-funnelInputSettings.canvas.left_padding += 50;
-funnelInputSettings.canvas.lower_padding += 25;
+const funnelInputSettings = structuredClone(funnelDefaultSettings) as funnelDefaultSettingsType;
+const funnelBaseCanvasPadding = {
+  left: funnelInputSettings.canvas.left_padding + 50,
+  lower: funnelInputSettings.canvas.lower_padding + 25,
+  upper: funnelInputSettings.canvas.upper_padding,
+  right: funnelInputSettings.canvas.right_padding,
+};
+funnelInputSettings.canvas.left_padding = funnelBaseCanvasPadding.left;
+funnelInputSettings.canvas.lower_padding = funnelBaseCanvasPadding.lower;
 
 const aggregations: Record<string, string> = {
   numerators: "sum",
   denominators: "sum",
   xbar_sds: "first",
 };
+
+type RawDataRow = {
+  categories: string | Date | null;
+  numerators: number;
+  denominators?: number | undefined;
+  xbar_sds?: number | undefined;
+};
+
+type ThemeMode = "light" | "dark";
+
+const themeStorageKey = "excel-control-charts-theme";
+
+function getStoredTheme(): ThemeMode | null {
+  try {
+    const value = window.localStorage.getItem(themeStorageKey);
+    return value === "light" || value === "dark" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function getPreferredTheme(): ThemeMode {
+  const storedTheme = getStoredTheme();
+  if (storedTheme) return storedTheme;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme: ThemeMode) {
+  const root = document.body;
+  const toggle = document.getElementById("theme-toggle") as HTMLButtonElement | null;
+  const label = document.getElementById("theme-toggle-label") as HTMLElement | null;
+  const isDark = theme === "dark";
+
+  root.dataset.theme = theme;
+  toggle?.setAttribute("aria-pressed", String(isDark));
+  toggle?.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+
+  if (label) {
+    label.textContent = isDark ? "Light mode" : "Dark mode";
+  }
+
+  try {
+    window.localStorage.setItem(themeStorageKey, theme);
+  } catch {
+    // Ignore storage failures and keep the in-memory theme.
+  }
+}
+
+function toggleTheme() {
+  applyTheme(document.body.dataset.theme === "dark" ? "light" : "dark");
+}
+
+function isValidDateValue(value: unknown): value is Date {
+  return value instanceof Date && Number.isFinite(value.getTime());
+}
+
+function getChartTitleText(): string {
+  return (
+    (document.getElementById("setting-chart-title") as HTMLInputElement | null)?.value || ""
+  ).trim();
+}
+
+function getChartTitleSize(): number {
+  const raw = (document.getElementById("setting-title-size") as HTMLInputElement | null)?.value;
+  return Math.min(48, Math.max(10, parseInt(raw || "16", 10) || 16));
+}
+
+function getChartTitleColor(): string {
+  return (
+    (document.getElementById("setting-title-color") as HTMLInputElement | null)?.value || "#111111"
+  );
+}
+
+function shouldShowDateRange(): boolean {
+  const dateRangeSel = document.getElementById(
+    "setting-show-date-range"
+  ) as HTMLSelectElement | null;
+  return parseBoolean(dateRangeSel?.value, true);
+}
+
+function fitTextToWidth(text: string, maxWidthPx: number, fontSizePx: number): string {
+  const maxChars = Math.max(8, Math.floor(maxWidthPx / (fontSizePx * 0.56)));
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
+}
+
+function formatDateForDisplay(date: Date): string {
+  const dateSettings = spcInputSettings.dates;
+  const formatOptions = dateSettingsToFormatOptions(dateSettings);
+  const locale = dateSettings.date_format_locale as "en-GB" | "en-US";
+  const dayElement = locale === "en-GB" ? "day" : "month";
+  const monthElement = locale === "en-GB" ? "month" : "day";
+  const datePartsRecord = formatDateParts(date, locale, formatOptions);
+  const datePartStrings = [
+    `${datePartsRecord.weekday} ${datePartsRecord[dayElement]}`.trim(),
+    datePartsRecord[monthElement],
+    datePartsRecord.year,
+  ];
+
+  return datePartStrings.filter((part) => String(part).trim()).join(dateSettings.date_format_delim);
+}
+
+function formatDateRange(rawData: RawDataRow[]): string | null {
+  const dates = rawData
+    .map((row) => row.categories)
+    .filter(isValidDateValue)
+    .slice()
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (!dates.length) return null;
+
+  const first = formatDateForDisplay(dates[0]);
+  const last = formatDateForDisplay(dates[dates.length - 1]);
+  return first === last ? first : `${first} to ${last}`;
+}
+
+function rawDataSupportsDateFormatting(rawData: RawDataRow[]): boolean {
+  const categories = rawData.map((row) => row.categories);
+  return (
+    categories.some(isValidDateValue) &&
+    categories.every((category) => category === null || isValidDateValue(category))
+  );
+}
+
+function updateHeaderCanvasPadding(controlChartType: string, includeDateRange: boolean) {
+  const titleText = getChartTitleText();
+  const titleSize = getChartTitleSize();
+  const includesDateRange = controlChartType === "spc" && includeDateRange && shouldShowDateRange();
+  let headerPadding = 0;
+
+  if (titleText) headerPadding += titleSize + 8;
+  if (includesDateRange) headerPadding += 17;
+  if (headerPadding > 0) headerPadding += 8;
+
+  if (controlChartType === "spc") {
+    spcInputSettings.canvas.upper_padding = spcBaseCanvasPadding.upper + headerPadding;
+  } else {
+    funnelInputSettings.canvas.upper_padding =
+      funnelBaseCanvasPadding.upper + (titleText ? titleSize + 16 : 0);
+  }
+}
+
+function drawChartFrameAndHeader(currVisual: any, rawData: RawDataRow[], controlChartType: string) {
+  const svg = currVisual.svg;
+  svg.selectAll(".chart-background").remove();
+  svg.selectAll(".chart-title,.chart-subtitle").remove();
+  svg
+    .append("rect")
+    .attr("class", "chart-background")
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .attr("fill", "white")
+    .lower();
+
+  const titleText = getChartTitleText();
+  const titleSize = getChartTitleSize();
+  const titleColor = getChartTitleColor();
+  const dateRange =
+    controlChartType === "spc" && shouldShowDateRange() ? formatDateRange(rawData) : null;
+
+  if (!titleText && !dateRange) return;
+
+  const plotProps: any = currVisual?.plotProperties || {};
+  const svgWidth = Number(svg.attr("width")) || 640;
+  const x = plotProps.xAxis?.start_padding || 20;
+  const maxTextWidth = Math.max(80, svgWidth - x - 16);
+  let nextY = 0;
+
+  if (titleText) {
+    nextY = titleSize + 4;
+    svg
+      .append("text")
+      .attr("class", "chart-title")
+      .attr("x", x)
+      .attr("y", nextY)
+      .attr("font-family", "Segoe UI, Arial, sans-serif")
+      .attr("font-weight", "700")
+      .attr("font-size", titleSize)
+      .attr("fill", titleColor)
+      .text(fitTextToWidth(titleText, maxTextWidth, titleSize));
+  }
+
+  if (dateRange) {
+    const subtitleSize = 11;
+    nextY = titleText ? nextY + subtitleSize + 6 : subtitleSize + 5;
+    svg
+      .append("text")
+      .attr("class", "chart-subtitle")
+      .attr("x", x)
+      .attr("y", nextY)
+      .attr("font-family", "Segoe UI, Arial, sans-serif")
+      .attr("font-size", subtitleSize)
+      .attr("fill", "#465169")
+      .text(fitTextToWidth(`Date range: ${dateRange}`, maxTextWidth, subtitleSize));
+  }
+}
 
 function getSelectedSpcChartType(): string {
   const el = document.getElementById("spc-chart-type") as HTMLSelectElement | null;
@@ -139,26 +349,65 @@ function updateSpcInputSettingsFromUi() {
   const subsetPointsFromSel = document.getElementById(
     "spc-subset-points-from"
   ) as HTMLSelectElement | null;
-  const showDateSel = document.getElementById("spc-ttip-show-date") as HTMLSelectElement | null;
-  const labelDateInput = document.getElementById("spc-ttip-label-date") as HTMLInputElement | null;
-  const showNumeratorSel = document.getElementById(
-    "spc-ttip-show-numerator"
-  ) as HTMLSelectElement | null;
-  const labelNumeratorInput = document.getElementById(
-    "spc-ttip-label-numerator"
-  ) as HTMLInputElement | null;
-  const showDenominatorSel = document.getElementById(
-    "spc-ttip-show-denominator"
-  ) as HTMLSelectElement | null;
-  const labelDenominatorInput = document.getElementById(
-    "spc-ttip-label-denominator"
-  ) as HTMLInputElement | null;
-  const showValueSel = document.getElementById("spc-ttip-show-value") as HTMLSelectElement | null;
-  const labelValueInput = document.getElementById(
-    "spc-ttip-label-value"
-  ) as HTMLInputElement | null;
   const llTruncateInput = document.getElementById("spc-ll-truncate") as HTMLInputElement | null;
   const ulTruncateInput = document.getElementById("spc-ul-truncate") as HTMLInputElement | null;
+  const showVariationSel = document.getElementById(
+    "spc-show-variation-icons"
+  ) as HTMLSelectElement | null;
+  const flagLastPointSel = document.getElementById(
+    "spc-flag-last-point"
+  ) as HTMLSelectElement | null;
+  const variationLocationSel = document.getElementById(
+    "spc-variation-location"
+  ) as HTMLSelectElement | null;
+  const variationScalingInput = document.getElementById(
+    "spc-variation-scaling"
+  ) as HTMLInputElement | null;
+  const showAssuranceSel = document.getElementById(
+    "spc-show-assurance-icons"
+  ) as HTMLSelectElement | null;
+  const assuranceLocationSel = document.getElementById(
+    "spc-assurance-location"
+  ) as HTMLSelectElement | null;
+  const assuranceScalingInput = document.getElementById(
+    "spc-assurance-scaling"
+  ) as HTMLInputElement | null;
+  const altTargetInput = document.getElementById("spc-alt-target") as HTMLInputElement | null;
+  const improvementDirectionSel = document.getElementById(
+    "spc-improvement-direction"
+  ) as HTMLSelectElement | null;
+  const astronomicalPointsSel = document.getElementById(
+    "spc-astronomical-points"
+  ) as HTMLSelectElement | null;
+  const astronomicalLimitSel = document.getElementById(
+    "spc-astronomical-limit"
+  ) as HTMLSelectElement | null;
+  const trendPatternSel = document.getElementById("spc-trend-pattern") as HTMLSelectElement | null;
+  const trendPointsInput = document.getElementById("spc-trend-points") as HTMLInputElement | null;
+  const twoInThreeSel = document.getElementById("spc-two-in-three") as HTMLSelectElement | null;
+  const twoInThreeHighlightSeriesSel = document.getElementById(
+    "spc-two-in-three-highlight-series"
+  ) as HTMLSelectElement | null;
+  const twoInThreeLimitSel = document.getElementById(
+    "spc-two-in-three-limit"
+  ) as HTMLSelectElement | null;
+  const shiftPatternSel = document.getElementById("spc-shift-pattern") as HTMLSelectElement | null;
+  const shiftPointsInput = document.getElementById("spc-shift-points") as HTMLInputElement | null;
+  const dateFormatDaySel = document.getElementById(
+    "spc-date-format-day"
+  ) as HTMLSelectElement | null;
+  const dateFormatMonthSel = document.getElementById(
+    "spc-date-format-month"
+  ) as HTMLSelectElement | null;
+  const dateFormatYearSel = document.getElementById(
+    "spc-date-format-year"
+  ) as HTMLSelectElement | null;
+  const dateFormatDelimSel = document.getElementById(
+    "spc-date-format-delim"
+  ) as HTMLSelectElement | null;
+  const dateFormatLocaleSel = document.getElementById(
+    "spc-date-format-locale"
+  ) as HTMLSelectElement | null;
 
   if (!spcInputSettings?.spc) {
     return;
@@ -203,56 +452,126 @@ function updateSpcInputSettingsFromUi() {
   if (subsetPointsFromSel) {
     spcInputSettings.spc.subset_points_from = subsetPointsFromSel.value as any;
   }
-  if (showDateSel) {
-    spcInputSettings.spc.ttip_show_date = parseBoolean(
-      showDateSel.value,
-      spcInputSettings.spc.ttip_show_date
-    );
-  }
-  if (labelDateInput) {
-    const next = labelDateInput.value.trim();
-    if (next.length) spcInputSettings.spc.ttip_label_date = next as any;
-  }
-  if (showNumeratorSel) {
-    spcInputSettings.spc.ttip_show_numerator = parseBoolean(
-      showNumeratorSel.value,
-      spcInputSettings.spc.ttip_show_numerator
-    );
-  }
-  if (labelNumeratorInput) {
-    const next = labelNumeratorInput.value.trim();
-    if (next.length) spcInputSettings.spc.ttip_label_numerator = next as any;
-  }
-  if (showDenominatorSel) {
-    spcInputSettings.spc.ttip_show_denominator = parseBoolean(
-      showDenominatorSel.value,
-      spcInputSettings.spc.ttip_show_denominator
-    );
-  }
-  if (labelDenominatorInput) {
-    const next = labelDenominatorInput.value.trim();
-    if (next.length) spcInputSettings.spc.ttip_label_denominator = next as any;
-  }
-  if (showValueSel) {
-    spcInputSettings.spc.ttip_show_value = parseBoolean(
-      showValueSel.value,
-      spcInputSettings.spc.ttip_show_value
-    );
-  }
-  if (labelValueInput) {
-    const next = labelValueInput.value.trim();
-    if (next.length) spcInputSettings.spc.ttip_label_value = next as any;
-  }
   if (llTruncateInput) {
     spcInputSettings.spc.ll_truncate = parseOptionalNumber(llTruncateInput.value) as any;
   }
   if (ulTruncateInput) {
     spcInputSettings.spc.ul_truncate = parseOptionalNumber(ulTruncateInput.value) as any;
   }
+  if (improvementDirectionSel) {
+    spcInputSettings.outliers.improvement_direction = improvementDirectionSel.value as any;
+  }
+  if (shiftPatternSel) {
+    spcInputSettings.outliers.shift = parseBoolean(
+      shiftPatternSel.value,
+      spcInputSettings.outliers.shift
+    );
+  }
+  if (shiftPointsInput) {
+    spcInputSettings.outliers.shift_n = parseNumber(
+      shiftPointsInput.value,
+      spcInputSettings.outliers.shift_n,
+      { min: 1 }
+    );
+  }
+  if (showVariationSel) {
+    spcInputSettings.nhs_icons.show_variation_icons = parseBoolean(
+      showVariationSel.value,
+      spcInputSettings.nhs_icons.show_variation_icons
+    );
+  }
+  if (flagLastPointSel) {
+    spcInputSettings.nhs_icons.flag_last_point = parseBoolean(
+      flagLastPointSel.value,
+      spcInputSettings.nhs_icons.flag_last_point
+    );
+  }
+  if (variationLocationSel) {
+    spcInputSettings.nhs_icons.variation_icons_locations = variationLocationSel.value as any;
+  }
+  if (variationScalingInput) {
+    spcInputSettings.nhs_icons.variation_icons_scaling = parseNumber(
+      variationScalingInput.value,
+      spcInputSettings.nhs_icons.variation_icons_scaling,
+      { min: 0 }
+    );
+  }
+  if (assuranceLocationSel) {
+    spcInputSettings.nhs_icons.assurance_icons_locations = assuranceLocationSel.value as any;
+  }
+  if (assuranceScalingInput) {
+    spcInputSettings.nhs_icons.assurance_icons_scaling = parseNumber(
+      assuranceScalingInput.value,
+      spcInputSettings.nhs_icons.assurance_icons_scaling,
+      { min: 0 }
+    );
+  }
+  const altTarget = parseOptionalNumber(altTargetInput?.value);
+  spcInputSettings.lines.alt_target = altTarget as any;
+  spcInputSettings.lines.show_alt_target = altTarget !== null;
+  if (showAssuranceSel) {
+    spcInputSettings.nhs_icons.show_assurance_icons =
+      parseBoolean(showAssuranceSel.value, spcInputSettings.nhs_icons.show_assurance_icons) &&
+      altTarget !== null;
+  }
+  if (astronomicalPointsSel) {
+    spcInputSettings.outliers.astronomical = parseBoolean(
+      astronomicalPointsSel.value,
+      spcInputSettings.outliers.astronomical
+    );
+  }
+  if (astronomicalLimitSel) {
+    spcInputSettings.outliers.astronomical_limit = astronomicalLimitSel.value as any;
+  }
+  if (trendPatternSel) {
+    spcInputSettings.outliers.trend = parseBoolean(
+      trendPatternSel.value,
+      spcInputSettings.outliers.trend
+    );
+  }
+  if (trendPointsInput) {
+    spcInputSettings.outliers.trend_n = parseNumber(
+      trendPointsInput.value,
+      spcInputSettings.outliers.trend_n,
+      { min: 1 }
+    );
+  }
+  if (twoInThreeSel) {
+    spcInputSettings.outliers.two_in_three = parseBoolean(
+      twoInThreeSel.value,
+      spcInputSettings.outliers.two_in_three
+    );
+  }
+  if (twoInThreeHighlightSeriesSel) {
+    spcInputSettings.outliers.two_in_three_highlight_series = parseBoolean(
+      twoInThreeHighlightSeriesSel.value,
+      spcInputSettings.outliers.two_in_three_highlight_series
+    );
+  }
+  if (twoInThreeLimitSel) {
+    spcInputSettings.outliers.two_in_three_limit = twoInThreeLimitSel.value as any;
+  }
+  if (dateFormatDaySel) {
+    spcInputSettings.dates.date_format_day = dateFormatDaySel.value as any;
+  }
+  if (dateFormatMonthSel) {
+    spcInputSettings.dates.date_format_month = dateFormatMonthSel.value as any;
+  }
+  if (dateFormatYearSel) {
+    spcInputSettings.dates.date_format_year = dateFormatYearSel.value as any;
+  }
+  if (dateFormatDelimSel) {
+    spcInputSettings.dates.date_format_delim = dateFormatDelimSel.value as any;
+  }
+  if (dateFormatLocaleSel) {
+    spcInputSettings.dates.date_format_locale = dateFormatLocaleSel.value as any;
+  }
 }
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
+    applyTheme(getPreferredTheme());
+
     // Change the display of sideload message so it is hidden
     document.getElementById("sideload-msg")!.style.display = "none";
     // Show the app body. This is the main form
@@ -334,6 +653,7 @@ Office.onReady((info) => {
     const chartTypeHidden = document.getElementById("controlchart-selector") as HTMLInputElement;
     const toggleSpc = document.getElementById("toggle-spc") as HTMLButtonElement;
     const toggleFunnel = document.getElementById("toggle-funnel") as HTMLButtonElement;
+    const themeToggle = document.getElementById("theme-toggle") as HTMLButtonElement | null;
     const chartTitleInput = document.getElementById("setting-chart-title") as HTMLInputElement;
     const chartTitleSizeInput = document.getElementById("setting-title-size") as HTMLInputElement;
     const chartTitleColorInput = document.getElementById("setting-title-color") as HTMLInputElement;
@@ -384,6 +704,7 @@ Office.onReady((info) => {
     }
     toggleSpc?.addEventListener("click", () => setChartType("spc"));
     toggleFunnel?.addEventListener("click", () => setChartType("funnel"));
+    themeToggle?.addEventListener("click", toggleTheme);
     // Initialize hidden value
     setChartType("spc");
 
@@ -405,8 +726,9 @@ Office.onReady((info) => {
     chartTitleSizeInput?.addEventListener("input", queuePreviewRefresh);
     chartTitleColorInput?.addEventListener("input", queuePreviewRefresh);
 
-    // Live preview update on Data Settings controls
+    // Live preview update on Settings controls
     const dataSettingsIds = [
+      "setting-show-date-range",
       "spc-chart-type",
       "spc-outliers-in-limits",
       "spc-multiplier",
@@ -415,16 +737,31 @@ Office.onReady((info) => {
       "spc-split-on-click",
       "spc-num-points-subset",
       "spc-subset-points-from",
-      "spc-ttip-show-date",
-      "spc-ttip-label-date",
-      "spc-ttip-show-numerator",
-      "spc-ttip-label-numerator",
-      "spc-ttip-show-denominator",
-      "spc-ttip-label-denominator",
-      "spc-ttip-show-value",
-      "spc-ttip-label-value",
       "spc-ll-truncate",
       "spc-ul-truncate",
+      "spc-show-variation-icons",
+      "spc-flag-last-point",
+      "spc-variation-location",
+      "spc-variation-scaling",
+      "spc-show-assurance-icons",
+      "spc-assurance-location",
+      "spc-assurance-scaling",
+      "spc-alt-target",
+      "spc-improvement-direction",
+      "spc-astronomical-points",
+      "spc-astronomical-limit",
+      "spc-trend-pattern",
+      "spc-trend-points",
+      "spc-two-in-three",
+      "spc-two-in-three-highlight-series",
+      "spc-two-in-three-limit",
+      "spc-shift-pattern",
+      "spc-shift-points",
+      "spc-date-format-day",
+      "spc-date-format-month",
+      "spc-date-format-year",
+      "spc-date-format-delim",
+      "spc-date-format-locale",
     ];
     dataSettingsIds.forEach((id) => {
       const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
@@ -481,8 +818,23 @@ function clearColumnSelectors() {
   updateDenominatorSelectorVisibility();
 }
 
-function fromExcelDate(excelDate: number): Date {
-  return new Date((excelDate - (25567 + 2)) * 86400 * 1000);
+function fromExcelDate(excelValue: unknown): Date | null {
+  if (excelValue instanceof Date) {
+    return isValidDateValue(excelValue) ? excelValue : null;
+  }
+
+  if (typeof excelValue === "number" && Number.isFinite(excelValue)) {
+    const parsed = new Date((excelValue - (25567 + 2)) * 86400 * 1000);
+    return isValidDateValue(parsed) ? parsed : null;
+  }
+
+  if (typeof excelValue === "string") {
+    if (!excelValue.trim()) return null;
+    const parsed = new Date(excelValue);
+    return isValidDateValue(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 async function updateTableSelector() {
@@ -702,7 +1054,7 @@ async function createPlot() {
       updateSpcInputSettingsFromUi();
     }
 
-    const rawData = categoryColumn.values.flat().map((cat, i) => {
+    const rawData: RawDataRow[] = categoryColumn.values.flat().map((cat, i) => {
       const row: any = {
         categories: controlChartType === "spc" ? fromExcelDate(cat) : cat,
         numerators: numeratorsColumn.values.flat()[i],
@@ -715,12 +1067,15 @@ async function createPlot() {
       }
       return row;
     });
+    const useFormattedDates = controlChartType === "spc" && rawDataSupportsDateFormatting(rawData);
+    updateHeaderCanvasPadding(controlChartType, useFormattedDates);
 
     var updateArgs = {
       dataViews: makeUpdateValues(
         rawData,
         controlChartType === "spc" ? spcInputSettings : funnelInputSettings,
-        aggregations
+        aggregations,
+        useFormattedDates
       ).dataViews,
       viewport: { width: 640, height: 480 },
       type: 2, //,
@@ -731,39 +1086,7 @@ async function createPlot() {
     var currVisual = controlChartType === "spc" ? spcVisual : funnelVisual;
 
     currVisual.update(updateArgs as any);
-    currVisual.svg.selectAll(".chart-title").remove();
-    currVisual.svg
-      .append("rect")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .attr("fill", "white")
-      .lower();
-
-    const titleTextCreate = (
-      document.getElementById("setting-chart-title") as HTMLInputElement
-    )?.value?.trim();
-    const titleSizeRaw =
-      (document.getElementById("setting-title-size") as HTMLInputElement)?.value || "16";
-    const titleSize = Math.min(48, Math.max(10, parseInt(titleSizeRaw, 10) || 16));
-    const titleColor =
-      (document.getElementById("setting-title-color") as HTMLInputElement)?.value || "#111111";
-
-    if (titleTextCreate) {
-      const plotProps: any = currVisual?.plotProperties || {};
-      const topPad = plotProps.yAxis?.end_padding ?? 0;
-      const descender = 0.2 * titleSize; // rough descender height
-      const gap = 2; // small gap above plot area
-      const computedY = topPad > 0 ? topPad - descender - gap : titleSize + 4;
-      const titleY = Math.max(titleSize + 2, computedY);
-      currVisual.svg
-        .append("text")
-        .attr("class", "chart-title")
-        .attr("x", plotProps.xAxis?.start_padding || 20)
-        .attr("y", titleY)
-        .attr("font-size", titleSize)
-        .attr("fill", titleColor)
-        .text(titleTextCreate);
-    }
+    drawChartFrameAndHeader(currVisual, rawData, controlChartType);
 
     var image = currentWorksheet.shapes.addImage(
       btoa((currVisual.svg.node() as SVGSVGElement).outerHTML)
@@ -842,7 +1165,8 @@ async function previewPlot() {
       : null;
 
     await context.sync();
-    const rawData = categoryColumn.values.flat().map((cat, i) => {
+
+    const rawData: RawDataRow[] = categoryColumn.values.flat().map((cat, i) => {
       const row: any = {
         categories: controlChartType === "spc" ? fromExcelDate(cat) : cat,
         numerators: numeratorsColumn.values.flat()[i],
@@ -855,6 +1179,8 @@ async function previewPlot() {
       }
       return row;
     });
+    const useFormattedDates = controlChartType === "spc" && rawDataSupportsDateFormatting(rawData);
+    updateHeaderCanvasPadding(controlChartType, useFormattedDates);
 
     const previewHost = document.getElementById("preview-container") as HTMLElement;
     const containerRect = previewHost.getBoundingClientRect();
@@ -866,7 +1192,8 @@ async function previewPlot() {
       dataViews: makeUpdateValues(
         rawData,
         controlChartType === "spc" ? spcInputSettings : funnelInputSettings,
-        aggregations
+        aggregations,
+        useFormattedDates
       ).dataViews,
       viewport: { width, height },
       type: 2,
@@ -881,40 +1208,7 @@ async function previewPlot() {
     currVisual.update(updateArgs);
     // Remove any mouse handlers that power the tooltip on the root svg (defense in depth)
     (currVisual.svg as any).on("mousemove", null).on("mouseleave", null);
-    // Ensure a white background for clarity in dark themes
-    currVisual.svg.selectAll(".chart-title").remove();
-    currVisual.svg
-      .append("rect")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .attr("fill", "white")
-      .lower();
-
-    const titleTextPreview = (
-      document.getElementById("setting-chart-title") as HTMLInputElement
-    )?.value?.trim();
-    const titleSizeRawPrev =
-      (document.getElementById("setting-title-size") as HTMLInputElement)?.value || "16";
-    const titleSizePrev = Math.min(48, Math.max(10, parseInt(titleSizeRawPrev, 10) || 16));
-    const titleColorPrev =
-      (document.getElementById("setting-title-color") as HTMLInputElement)?.value || "#111111";
-
-    if (titleTextPreview) {
-      const plotProps: any = currVisual?.plotProperties || {};
-      const topPad = plotProps.yAxis?.end_padding ?? 0;
-      const descenderPrev = 0.2 * titleSizePrev;
-      const gapPrev = 2;
-      const computedYPrev = topPad > 0 ? topPad - descenderPrev - gapPrev : titleSizePrev + 4;
-      const titleYPrev = Math.max(titleSizePrev + 2, computedYPrev);
-      currVisual.svg
-        .append("text")
-        .attr("class", "chart-title")
-        .attr("x", plotProps.xAxis?.start_padding || 20)
-        .attr("y", titleYPrev)
-        .attr("font-size", titleSizePrev)
-        .attr("fill", titleColorPrev)
-        .text(titleTextPreview);
-    }
+    drawChartFrameAndHeader(currVisual, rawData, controlChartType);
   });
 }
 

@@ -135,35 +135,43 @@ function aggregateColumn(column: number[], aggregation: string): number {
 }
 
 type rawDataType = Array<{
-  categories: string | Date;
+  categories: string | Date | null;
   numerators: number;
   denominators?: number | undefined;
   xbar_sds?: number | undefined;
 }>;
 
-// Custom groupBy implementation to replace Object.groupBy
-function groupBy(array: any[], keyFn: (item: any) => any): { [key: string]: any[] } {
-  return array.reduce((result, item) => {
-    const key = keyFn(item);
-    if (!result[key]) result[key] = [];
-    result[key].push(item);
-    return result;
-  }, {});
-}
-
 function makeUpdateValues(
   rawData: rawDataType,
   inputSettings: spcDefaultSettingsType | funnelDefaultSettingsType,
-  aggregations: Record<string, string>
+  aggregations: Record<string, string>,
+  categoryIsTemporal = false
 ): VisualUpdateOptions {
-  const dataGrouped = groupBy(rawData, (d) => d.categories);
-  Object.freeze(dataGrouped);
+  const dataGrouped: Array<{ category: string | Date | null; rows: rawDataType }> = [];
+  const groupIndexes = new Map<string, number>();
+
+  rawData.forEach((row) => {
+    const categoryKey =
+      row.categories instanceof Date && Number.isFinite(row.categories.getTime())
+        ? `date:${row.categories.getTime()}`
+        : String(row.categories ?? "");
+    const existingIndex = groupIndexes.get(categoryKey);
+
+    if (existingIndex === undefined) {
+      groupIndexes.set(categoryKey, dataGrouped.length);
+      dataGrouped.push({ category: row.categories, rows: [row] });
+    } else {
+      dataGrouped[existingIndex].rows.push(row);
+    }
+  });
 
   const categories: DataViewCategoryColumn = {
     source: {
       displayName: "categories",
       roles: { key: true },
-      type: { temporal: {} as powerbi.TemporalTypeDescriptor },
+      type: categoryIsTemporal
+        ? { temporal: {} as powerbi.TemporalTypeDescriptor }
+        : { text: true },
     },
     values: [],
     objects: [],
@@ -176,14 +184,14 @@ function makeUpdateValues(
     values: new Array<powerbi.PrimitiveValue>(),
   }));
 
-  for (var category in dataGrouped) {
-    categories.values.push(category);
+  for (const group of dataGrouped) {
+    categories.values.push(group.category);
     categories.objects!.push(inputSettings as powerbi.DataViewObjects);
 
     for (var i = 0; i < valueNames.length; i++) {
       var name = valueNames[i];
       var aggregatedValue = aggregateColumn(
-        dataGrouped[category].map((dataRow) => dataRow[name]),
+        group.rows.map((dataRow) => dataRow[name]),
         aggregations[name]
       );
       values[i].values.push(aggregatedValue);
