@@ -115,6 +115,23 @@
             <option value="" disabled selected>Select SD (Xbar)</option>
         </select>
     </div>
+
+    <div class="field field--full" id="spc-date-range-filter-field" hidden>
+        <label for="spc-date-range-start">Included date range</label>
+        <div class="date-range-filter">
+            <div id="spc-date-range-summary" class="date-range-filter__summary">Select a date-based category column to enable filtering.</div>
+            <div class="date-range-filter__row">
+                <label for="spc-date-range-start" class="date-range-filter__label">Start</label>
+                <input id="spc-date-range-start" class="date-range-filter__slider" type="range" min="0" max="0" value="0" disabled />
+                <output id="spc-date-range-start-label" class="date-range-filter__value">-</output>
+            </div>
+            <div class="date-range-filter__row">
+                <label for="spc-date-range-end" class="date-range-filter__label">End</label>
+                <input id="spc-date-range-end" class="date-range-filter__slider" type="range" min="0" max="0" value="0" disabled />
+                <output id="spc-date-range-end-label" class="date-range-filter__value">-</output>
+            </div>
+        </div>
+    </div>
 </div>
 <!-- End of dropdown options -->
 </section>
