@@ -18,19 +18,15 @@ jobs:
       with:
         submodules: 'recursive'
 
-    - name: Install Node.js
-      uses: actions/setup-node@v6
-      with:
-        node-version: 24
+    - uses: oven-sh/setup-bun@v2
 
-    - name: Install Dependencies
-      run: |
-        npm install
+    - name: Install dependencies
+      run: bun install
 
     - name: Run linter
       run: |
-        npm run lint
+        bun run lint
 
     - name: Test if plugin can be built
       run: |
-        npm run build
+        bun run build
