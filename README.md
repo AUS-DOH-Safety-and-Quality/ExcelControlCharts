@@ -43,32 +43,27 @@ This will perform the same steps as the `bun run start` command, but will also a
 
 <img width="1129" height="338" alt="image" src="https://github.com/user-attachments/assets/7b95172d-19d8-4710-b50e-b08e96974802" />
 
-## Portable Windows Bundle
+## Standalone Launcher
 
-This repo now includes a Bun-based packaging flow for a Windows-only portable bundle. It does not convert the add-in into a native Excel plugin; it packages the existing Office web add-in so a user can launch a local HTTPS host and sideload it into Excel without going through Microsoft Marketplace.
-
-Build the bundle with:
+The add-in is hosted on GitHub Pages, so distributing it only requires sideloading the published manifest into Excel. `bun run start:deployed` does that from a checkout, and the same script compiles to a single executable for users who have Excel but no developer tooling:
 
 ```bash
-bun run build:portable
+bun run build:launcher       # release/ExcelControlCharts.exe (Windows, cross-compiles from any host)
+bun run build:launcher:mac   # release/ExcelControlCharts (current platform)
 ```
 
-That produces both:
+The launcher downloads `manifest.xml` from the deployed site and registers it for sideloading, then exits. The add-in content itself is served by GitHub Pages.
 
-- a `release/ExcelControlCharts.exe` single-file launcher
-- a `release/ExcelControlCharts-portable.zip` archive containing that one launcher
+To use it on a machine with Excel installed:
 
-The launcher contains the compiled web assets and manifest internally. On startup it writes the manifest to a temporary folder, serves the add-in from memory over `https://localhost:3100`, and then sideloads it into Excel.
+1. Copy `release/ExcelControlCharts.exe` to the target machine.
+2. Run it once.
+3. Open Excel and choose the add-in from the Home tab.
 
-To use the bundle on a Windows machine with Excel installed:
-
-1. Copy `release/ExcelControlCharts.exe` to the target machine, or send `release/ExcelControlCharts-portable.zip` and extract it.
-2. Run `ExcelControlCharts.exe`.
-3. On first launch, it will install/trust the localhost development certificate if needed, register the manifest for sideloading, and open Excel with the add-in loaded.
+Set `ADDIN_BASE_URL` to point the launcher at a different deployment (a fork's Pages site, for example).
 
 Important limitations:
 
-- This is a Windows desktop Excel sideloading flow, not AppSource publishing.
-- The launcher must keep running while the task pane is open because it hosts the add-in locally.
-- The launcher is a single file, but Excel is still loading a web add-in behind the scenes, so the EXE still needs to keep hosting content while Excel uses it.
+- This is a desktop Excel sideloading flow, not AppSource publishing.
+- The machine needs network access to the deployed site, both to build the launcher's manifest and to load the task pane.
 
