@@ -30,7 +30,7 @@ jobs:
 
       - name: Build add-in (production)
         env:
-          ADDIN_BASE_URL: https://aus-doh-safety-and-quality.github.io/ExcelControlCharts
+          ADDIN_BASE_URL: https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/
         run: bun run build
 
       - name: Configure Pages
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: https://aus-doh-safety-and-quality.github.io/ExcelControlCharts
+      url: https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
