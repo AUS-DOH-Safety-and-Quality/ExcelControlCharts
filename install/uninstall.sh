@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 # Unregisters the ExcelControlCharts add-in and removes its manifest.
-# Double-click in Finder, or pipe from the web:
-#   curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.command | bash
+# Run directly, or pipe from the web:
+#   curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.sh | sh
 
-set -euo pipefail
+set -eu
 
 DATA_DIR="$HOME/Library/Application Support/ExcelControlCharts"
 MANIFEST_PATH="$DATA_DIR/manifest.xml"

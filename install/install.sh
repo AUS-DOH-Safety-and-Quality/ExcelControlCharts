@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 # Registers the deployed ExcelControlCharts add-in for sideloading in Excel.
-# Double-click in Finder, or pipe from the web:
-#   curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.command | bash
+# Run directly, or pipe from the web:
+#   curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.sh | sh
 
-set -euo pipefail
+set -eu
 
 BASE_URL="https://aus-doh-safety-and-quality.github.io/ExcelControlCharts"
 

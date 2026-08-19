@@ -1,7 +1,6 @@
 import { watch } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { forDeployment } from "./manifest";
 
 export type BuildMode = "development" | "production";
 
@@ -10,12 +9,15 @@ const distRoot = path.join(repoRoot, "dist");
 
 const isIgnoredAsset = (name: string) => name === "dummy_data.xlsx" || name.startsWith("~$");
 
-const installerScripts = ["install.ps1", "uninstall.ps1", "install.command", "uninstall.command"];
+const installerScripts = ["install.ps1", "uninstall.ps1", "install.sh", "uninstall.sh"];
+
+const urlDev = "https://localhost:3100/";
+const urlDeployed = "https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/";
 
 // Read rather than import the manifest so watch mode picks up edits.
 async function renderManifest(mode: BuildMode): Promise<string> {
   const content = await fs.readFile(path.join(repoRoot, "manifest.xml"), "utf-8");
-  return mode === "development" ? content : forDeployment(content);
+  return mode === "development" ? content : content.replaceAll(urlDev, urlDeployed);
 }
 
 export async function runBuild(mode: BuildMode): Promise<void> {

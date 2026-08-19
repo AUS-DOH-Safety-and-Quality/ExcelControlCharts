@@ -1,6 +1,39 @@
 # ExcelControlCharts
 An Excel plugin for SPC charts and Funnel plots
 
+
+## Installing the Add-in
+
+The add-in is hosted on GitHub Pages, so installing it only requires sideloading the published manifest into Excel. The install scripts are published alongside the manifest and can be run in one line — no checkout, no developer tooling, and no admin rights.
+
+You can see the full source under the [install](install) folder.
+
+Note that Excel needs network access to load the add-in.
+
+**Windows** (PowerShell):
+
+```powershell
+irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.ps1 | iex
+```
+
+**macOS** (Terminal):
+
+```bash
+curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.sh | sh
+```
+
+Then restart Excel and choose the add-in from the Home tab.
+
+To remove it, run the matching uninstall script:
+
+```powershell
+irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.ps1 | iex
+```
+
+```bash
+curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.sh | sh
+```
+
 ## Initialising the Development Environment
 
 The repo uses submodules to include the [`PowerBI-SPC`](https://github.com/AUS-DOH-Safety-and-Quality/PowerBI-SPC) and [`PowerBI-Funnels`](https://github.com/AUS-DOH-Safety-and-Quality/PowerBI-Funnels) sources, so be sure to clone those when setting a local copy of the repo:
@@ -42,38 +75,3 @@ You can launch the plugin with debugging support by pressing `F5` or selecting t
 This will perform the same steps as the `bun run start` command, but will also attach a debugger to the plugin - allowing for better support of logging and debugging:
 
 <img width="1129" height="338" alt="image" src="https://github.com/user-attachments/assets/7b95172d-19d8-4710-b50e-b08e96974802" />
-
-## Installing the Add-in
-
-The add-in is hosted on GitHub Pages, so installing it only requires sideloading the published manifest into Excel. The install scripts are published alongside the manifest and can be run in one line — no checkout, no developer tooling, and no admin rights.
-
-**Windows** (PowerShell):
-
-```powershell
-irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.ps1 | iex
-```
-
-**macOS** (Terminal):
-
-```bash
-curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.command | bash
-```
-
-Then restart Excel and choose the add-in from the Home tab.
-
-To remove it, run the matching uninstall script:
-
-```powershell
-irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.ps1 | iex
-```
-
-```bash
-curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.command | bash
-```
-
-### What The Scripts Do
-
-Each script downloads the deployed `manifest.xml` (already pointed at the Pages URL at build time) and registers it with Excel. You can see
-the full source under the [install](install) folder.
-
-Note that Excel needs network access to load the add-in.
