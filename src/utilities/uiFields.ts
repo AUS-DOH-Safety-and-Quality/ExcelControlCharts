@@ -86,7 +86,11 @@ export function attachFieldInfo(label: HTMLElement, infoText?: string): void {
   tooltipHost.appendChild(tooltip);
 }
 
-export function createFieldWrapper(labelText: string, inputId: string, infoText?: string): HTMLDivElement {
+export function createFieldWrapper(
+  labelText: string,
+  inputId: string,
+  infoText?: string
+): HTMLDivElement {
   const field = document.createElement("div");
   field.className = "field";
 

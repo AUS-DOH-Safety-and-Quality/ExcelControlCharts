@@ -112,10 +112,7 @@ function attachStaticFieldHelpText() {
       'label[for="denominator-selector"]',
       "Choose the denominator or population column when the selected chart type requires one.",
     ],
-    [
-      'label[for="sd-selector"]',
-      "Choose the standard deviation column required for Xbar charts.",
-    ],
+    ['label[for="sd-selector"]', "Choose the standard deviation column required for Xbar charts."],
     [
       "#spc-date-range-filter-field > label",
       "For SPC date categories, limit the preview and created chart to the selected date window.",
@@ -214,9 +211,9 @@ function shouldShowDateRange(): boolean {
 }
 
 function updateDateRangeSettingVisibility(chartFamily: ChartFamily) {
-  const dateRangeField = document.getElementById("setting-show-date-range")?.closest(
-    ".field"
-  ) as HTMLElement | null;
+  const dateRangeField = document
+    .getElementById("setting-show-date-range")
+    ?.closest(".field") as HTMLElement | null;
   if (!dateRangeField) {
     return;
   }
@@ -533,7 +530,11 @@ function canRenderSpcAssuranceIcons(
   improvementDirection: string,
   chartType: string = getSelectedSpcChartType()
 ): boolean {
-  return altTarget !== null && improvementDirection !== "neutral" && spcChartTypeHasControlLimits(chartType);
+  return (
+    altTarget !== null &&
+    improvementDirection !== "neutral" &&
+    spcChartTypeHasControlLimits(chartType)
+  );
 }
 
 function getSelectedChartFamily(): ChartFamily {
@@ -931,9 +932,7 @@ function updateFunnelInputSettingsFromUi() {
     "funnel-category-point-labels"
   ) as HTMLSelectElement | null;
   const twoSigmaSel = document.getElementById("funnel-two-sigma") as HTMLSelectElement | null;
-  const threeSigmaSel = document.getElementById(
-    "funnel-three-sigma"
-  ) as HTMLSelectElement | null;
+  const threeSigmaSel = document.getElementById("funnel-three-sigma") as HTMLSelectElement | null;
 
   if (!funnelInputSettings?.funnel) {
     return;
@@ -999,7 +998,9 @@ function updateFunnelInputSettingsFromUi() {
   applyFunnelCategoryLabelStyle();
 }
 
-function updateCurrentChartInputSettingsFromUi(chartFamily: ChartFamily = getSelectedChartFamily()) {
+function updateCurrentChartInputSettingsFromUi(
+  chartFamily: ChartFamily = getSelectedChartFamily()
+) {
   if (chartFamily === "spc") {
     updateSpcInputSettingsFromUi();
   } else {
@@ -1574,8 +1575,7 @@ async function createPlot() {
       }
       return row;
     });
-    const filteredRawData =
-      controlChartType === "spc" ? applySpcDateRangeFilter(rawData) : rawData;
+    const filteredRawData = controlChartType === "spc" ? applySpcDateRangeFilter(rawData) : rawData;
     const useFormattedDates =
       controlChartType === "spc" && rawDataSupportsDateFormatting(filteredRawData);
     updateHeaderCanvasPadding(controlChartType, useFormattedDates);
@@ -1596,7 +1596,7 @@ async function createPlot() {
     var currVisual = controlChartType === "spc" ? spcVisual : funnelVisual;
 
     currVisual.update(updateArgs as any);
-  drawChartFrameAndHeader(currVisual, filteredRawData, controlChartType);
+    drawChartFrameAndHeader(currVisual, filteredRawData, controlChartType);
 
     var image = currentWorksheet.shapes.addImage(
       btoa((currVisual.svg.node() as SVGSVGElement).outerHTML)
@@ -1690,8 +1690,7 @@ async function previewPlot() {
       }
       return row;
     });
-    const filteredRawData =
-      controlChartType === "spc" ? applySpcDateRangeFilter(rawData) : rawData;
+    const filteredRawData = controlChartType === "spc" ? applySpcDateRangeFilter(rawData) : rawData;
     const useFormattedDates =
       controlChartType === "spc" && rawDataSupportsDateFormatting(filteredRawData);
     updateHeaderCanvasPadding(controlChartType, useFormattedDates);

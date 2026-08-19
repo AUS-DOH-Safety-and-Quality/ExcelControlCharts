@@ -4,13 +4,13 @@ import path from "node:path";
 
 // Using the current working directory as the repo root when the build script runs
 const repoRoot = process.cwd();
-console.log("Repo root")
-console.log(repoRoot)
+console.log("Repo root");
+console.log(repoRoot);
 const releaseRoot = path.join(repoRoot, "release");
 const buildRoot = path.join(releaseRoot, "_build");
 const portableZip = path.join(releaseRoot, "ExcelControlCharts-portable.zip");
 const launcherOutput = path.join(releaseRoot, "ExcelControlCharts.exe");
-const manifestUrl = process.env.PORTABLE_BASE_URL;  //|| "https://localhost:3100/";
+const manifestUrl = process.env.PORTABLE_BASE_URL; //|| "https://localhost:3100/";
 
 type EmbeddedAssetMap = Record<string, string>;
 
@@ -109,10 +109,10 @@ async function generateLauncherEntry(): Promise<string> {
     "",
     "launchEmbeddedPortable({",
     '  appName: "ExcelControlCharts",',
-    '  manifestXml,',
-    '  excelTaskPaneTemplate,',
-    '  embeddedAssets,',
-    '  defaultPort: 3100,',
+    "  manifestXml,",
+    "  excelTaskPaneTemplate,",
+    "  embeddedAssets,",
+    "  defaultPort: 3100,",
     "});",
   ].join("\n");
 
@@ -133,7 +133,16 @@ async function createPortableArchive(): Promise<void> {
     return;
   }
 
-  await run(["tar", "-a", "-c", "-f", portableZip, "-C", releaseRoot, path.basename(launcherOutput)]);
+  await run([
+    "tar",
+    "-a",
+    "-c",
+    "-f",
+    portableZip,
+    "-C",
+    releaseRoot,
+    path.basename(launcherOutput),
+  ]);
 }
 
 async function removeIfPossible(targetPath: string, recursive = false): Promise<void> {
