@@ -24,6 +24,8 @@ export default [
     languageOptions: {
       globals: {
         ...globals.browser,
+        ...globals.node,
+        "NodeJS": true,
         "Office": "readonly",
         "Excel": "readonly"
         }

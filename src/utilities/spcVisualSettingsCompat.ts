@@ -72,7 +72,11 @@ function backfillMissingSpcSettings(
 
 function patchSpcVisualSettingsForTaskpane(spcVisual: any) {
   const inputSettings = spcVisual?.viewModel?.inputSettings as SpcInputSettingsInstance | undefined;
-  if (!inputSettings || typeof inputSettings.update !== "function" || inputSettings.__taskpanePatched) {
+  if (
+    !inputSettings ||
+    typeof inputSettings.update !== "function" ||
+    inputSettings.__taskpanePatched
+  ) {
     return;
   }
 

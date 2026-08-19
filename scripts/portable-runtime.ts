@@ -144,23 +144,25 @@ async function tryInstallCurrentUserCaCertificate(caCertificatePath: string): Pr
 
 async function ensureHttpsServerOptions() {
   const { caPath, certPath, keyPath } = getCertificatePaths();
-  const certificateFilesExist = await Promise.all([caPath, certPath, keyPath].map(async (filePath) => {
-    try {
-      await fs.access(filePath);
-      return true;
-    } catch {
-      return false;
-    }
-  }));
+  const certificateFilesExist = await Promise.all(
+    [caPath, certPath, keyPath].map(async (filePath) => {
+      try {
+        await fs.access(filePath);
+        return true;
+      } catch {
+        return false;
+      }
+    })
+  );
 
   if (certificateFilesExist.some((exists) => !exists)) {
     console.log("Generating self-signed HTTPS certificates...");
     await generateCertificates(caPath, certPath, keyPath, 365, ["127.0.0.1", "localhost"]);
-    
+
     // Try to install to Windows trust store (best-effort, non-blocking)
     console.log("Attempting to install CA certificate to Windows trusted store...");
     const installed = await tryInstallCurrentUserCaCertificate(caPath);
-    
+
     if (installed) {
       console.log("✓ CA certificate installed successfully");
     } else {
@@ -204,7 +206,10 @@ function makeUniqueTempPath(fileName: string): string {
   return candidatePath;
 }
 
-async function createExcelSideloadWorkbook(manifestPath: string, excelTaskPaneTemplate: string): Promise<string> {
+async function createExcelSideloadWorkbook(
+  manifestPath: string,
+  excelTaskPaneTemplate: string
+): Promise<string> {
   const { id, version } = await readManifestIdentity(manifestPath);
   const templateZip = new AdmZip(Buffer.from(excelTaskPaneTemplate, "base64"));
   const outputZip = new AdmZip();
@@ -212,7 +217,9 @@ async function createExcelSideloadWorkbook(manifestPath: string, excelTaskPaneTe
   const webExtensionEntry = templateZip.getEntry(webExtensionPath);
 
   if (!webExtensionEntry) {
-    throw new Error("The embedded Excel sideload template is missing xl/webextensions/webextension.xml.");
+    throw new Error(
+      "The embedded Excel sideload template is missing xl/webextensions/webextension.xml."
+    );
   }
 
   const webExtensionXml = templateZip
@@ -248,7 +255,9 @@ async function launchWorkbook(workbookPath: string): Promise<void> {
   });
 }
 
-export async function launchEmbeddedPortable(options: LaunchEmbeddedPortableOptions): Promise<void> {
+export async function launchEmbeddedPortable(
+  options: LaunchEmbeddedPortableOptions
+): Promise<void> {
   const port = getPort(options.defaultPort);
   const httpsOptions = await ensureHttpsServerOptions();
   const manifestPath = await ensureManifestOnDisk(options.appName, options.manifestXml);
@@ -297,7 +306,10 @@ export async function launchEmbeddedPortable(options: LaunchEmbeddedPortableOpti
   console.log(`Serving ${assetCache.size} embedded files from memory`);
 
   await registerAddIn(manifestPath);
-  const workbookPath = await createExcelSideloadWorkbook(manifestPath, options.excelTaskPaneTemplate);
+  const workbookPath = await createExcelSideloadWorkbook(
+    manifestPath,
+    options.excelTaskPaneTemplate
+  );
   await launchWorkbook(workbookPath);
 
   const shutdown = () => {

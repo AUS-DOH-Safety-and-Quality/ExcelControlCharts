@@ -105,10 +105,7 @@ function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
   };
 }
 
-function aggregateColumn(
-  column: AggregatableValue[],
-  aggregation: string
-): powerbi.PrimitiveValue {
+function aggregateColumn(column: AggregatableValue[], aggregation: string): powerbi.PrimitiveValue {
   if (aggregation === "first") {
     return (column[0] ?? null) as powerbi.PrimitiveValue;
   }
