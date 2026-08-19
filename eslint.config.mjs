@@ -25,6 +25,7 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
+        ...globals.bunBuiltin,
         "NodeJS": true,
         "Office": "readonly",
         "Excel": "readonly"

@@ -8,13 +8,17 @@
     "experimentalDecorators": true,
     "jsx": "react",
     "noEmitOnError": true,
+    "module": "ESNext",
     "moduleResolution": "node",
     "outDir": "lib",
     "sourceMap": true,
-    "target": "es6",
+    "target": "ES2022",
     "lib": [
-      "es2015",
+      "ES2022",
       "dom"
+    ],
+    "types": [
+      "bun"
     ]
   },
   "exclude": [
