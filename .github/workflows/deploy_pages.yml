@@ -29,8 +29,6 @@ jobs:
         run: bun install
 
       - name: Build add-in (production)
-        env:
-          ADDIN_BASE_URL: https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/
         run: bun run build
 
       - name: Configure Pages

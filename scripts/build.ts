@@ -1,24 +1,24 @@
 import { watch } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { forDeployment } from "./manifest";
 
 export type BuildMode = "development" | "production";
 
 const repoRoot = process.cwd();
 const distRoot = path.join(repoRoot, "dist");
-const urlDev = "https://localhost:3100/";
-export const deployedBaseUrl = "https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/";
 
 const isIgnoredAsset = (name: string) => name === "dummy_data.xlsx" || name.startsWith("~$");
 
-async function renderManifest(mode: BuildMode, baseUrl?: string): Promise<string> {
+const installerScripts = ["install.ps1", "uninstall.ps1", "install.command", "uninstall.command"];
+
+// Read rather than import the manifest so watch mode picks up edits.
+async function renderManifest(mode: BuildMode): Promise<string> {
   const content = await fs.readFile(path.join(repoRoot, "manifest.xml"), "utf-8");
-  return mode === "development"
-    ? content
-    : content.replaceAll(urlDev, baseUrl ?? process.env.ADDIN_BASE_URL ?? deployedBaseUrl);
+  return mode === "development" ? content : forDeployment(content);
 }
 
-export async function runBuild(mode: BuildMode, baseUrl?: string): Promise<void> {
+export async function runBuild(mode: BuildMode): Promise<void> {
   await fs.rm(distRoot, { recursive: true, force: true });
 
   const result = await Bun.build({
@@ -40,7 +40,12 @@ export async function runBuild(mode: BuildMode, baseUrl?: string): Promise<void>
     recursive: true,
     filter: (src) => !isIgnoredAsset(path.basename(src)),
   });
-  await fs.writeFile(path.join(distRoot, "manifest.xml"), await renderManifest(mode, baseUrl));
+  await fs.writeFile(path.join(distRoot, "manifest.xml"), await renderManifest(mode));
+
+  // Served alongside the manifest so users can install with a single download.
+  for (const script of installerScripts) {
+    await fs.cp(path.join(repoRoot, "install", script), path.join(distRoot, script));
+  }
 }
 
 export function watchAndRebuild(mode: BuildMode): void {

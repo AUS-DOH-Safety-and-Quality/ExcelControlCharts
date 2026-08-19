@@ -9,20 +9,17 @@
   "config": {
     "app_to_debug": "excel",
     "app_type_to_debug": "desktop",
-    "dev_server_port": 3100
+    "dev_server_port": "3100"
   },
   "scripts": {
     "build": "bun run scripts/build.ts --mode production",
     "build:dev": "bun run scripts/build.ts --mode development",
-    "build:launcher": "bun build scripts/sideload-deployed.ts --compile --target=bun-windows-x64 --outfile release/ExcelControlCharts.exe",
-    "build:launcher:mac": "bun build scripts/sideload-deployed.ts --compile --outfile release/ExcelControlCharts",
     "dev-server": "bun run scripts/dev-server.ts",
     "lint": "bun x eslint src scripts",
     "lint:fix": "bun x eslint src scripts --fix",
     "signin": "office-addin-dev-settings m365-account login",
     "signout": "office-addin-dev-settings m365-account logout",
     "start": "office-addin-debugging start manifest.xml",
-    "start:deployed": "bun run scripts/sideload-deployed.ts",
     "stop": "office-addin-debugging stop manifest.xml",
     "validate": "office-addin-manifest validate manifest.xml",
     "watch": "bun run scripts/build.ts --mode development --watch"

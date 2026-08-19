@@ -43,27 +43,37 @@ This will perform the same steps as the `bun run start` command, but will also a
 
 <img width="1129" height="338" alt="image" src="https://github.com/user-attachments/assets/7b95172d-19d8-4710-b50e-b08e96974802" />
 
-## Standalone Launcher
+## Installing the Add-in
 
-The add-in is hosted on GitHub Pages, so distributing it only requires sideloading the published manifest into Excel. `bun run start:deployed` does that from a checkout, and the same script compiles to a single executable for users who have Excel but no developer tooling:
+The add-in is hosted on GitHub Pages, so installing it only requires sideloading the published manifest into Excel. The install scripts are published alongside the manifest and can be run in one line — no checkout, no developer tooling, and no admin rights.
 
-```bash
-bun run build:launcher       # release/ExcelControlCharts.exe (Windows, cross-compiles from any host)
-bun run build:launcher:mac   # release/ExcelControlCharts (current platform)
+**Windows** (PowerShell):
+
+```powershell
+irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.ps1 | iex
 ```
 
-The launcher downloads `manifest.xml` from the deployed site and registers it for sideloading, then exits. The add-in content itself is served by GitHub Pages.
+**macOS** (Terminal):
 
-To use it on a machine with Excel installed:
+```bash
+curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.command | bash
+```
 
-1. Copy `release/ExcelControlCharts.exe` to the target machine.
-2. Run it once.
-3. Open Excel and choose the add-in from the Home tab.
+Then restart Excel and choose the add-in from the Home tab.
 
-Set `ADDIN_BASE_URL` to point the launcher at a different deployment (a fork's Pages site, for example).
+To remove it, run the matching uninstall script:
 
-Important limitations:
+```powershell
+irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.ps1 | iex
+```
 
-- This is a desktop Excel sideloading flow, not AppSource publishing.
-- The machine needs network access to the deployed site, both to build the launcher's manifest and to load the task pane.
+```bash
+curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.command | bash
+```
 
+### What The Scripts Do
+
+Each script downloads the deployed `manifest.xml` (already pointed at the Pages URL at build time) and registers it with Excel. You can see
+the full source under the [install](install) folder.
+
+Note that Excel needs network access to load the add-in.
