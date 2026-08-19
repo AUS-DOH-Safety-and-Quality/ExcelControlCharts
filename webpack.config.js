@@ -2,14 +2,30 @@
 
 const devCerts = require("office-addin-dev-certs");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
+const fs = require("fs");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const os = require("os");
+const path = require("path");
 
-const urlDev = "https://localhost:3000/";
-const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+const urlDev = "https://localhost:3100/";
+const urlProd = process.env.ADDIN_BASE_URL || "https://www.contoso.com/";
 
 async function getHttpsOptions() {
-  const httpsOptions = await devCerts.getHttpsServerOptions();
-  return { ca: httpsOptions.ca, key: httpsOptions.key, cert: httpsOptions.cert };
+  try {
+    const httpsOptions = await devCerts.getHttpsServerOptions();
+    return { ca: httpsOptions.ca, key: httpsOptions.key, cert: httpsOptions.cert };
+  } catch (error) {
+    const certDirectory = path.join(os.homedir(), ".office-addin-dev-certs");
+    const fallbackOptions = {
+      ca: fs.readFileSync(path.join(certDirectory, "ca.crt")),
+      key: fs.readFileSync(path.join(certDirectory, "localhost.key")),
+      cert: fs.readFileSync(path.join(certDirectory, "localhost.crt")),
+    };
+    console.warn(
+      `Using existing Office add-in dev certificate files because certificate verification failed: ${error.message}`
+    );
+    return fallbackOptions;
+  }
 }
 
 module.exports = async (env, options) => {
@@ -61,6 +77,9 @@ module.exports = async (env, options) => {
           {
             from: "assets/*",
             to: "assets/[name][ext][query]",
+            globOptions: {
+              ignore: ["**/dummy_data.xlsx", "**/~$*.xlsx"],
+            },
           },
           {
             from: "manifest*.xml",
@@ -89,7 +108,7 @@ module.exports = async (env, options) => {
         type: "https",
         options: env.WEBPACK_BUILD || options.https !== undefined ? options.https : await getHttpsOptions(),
       },
-      port: process.env.npm_package_config_dev_server_port || 3000,
+      port: process.env.DEV_SERVER_PORT || 3100,
     },
   };
 

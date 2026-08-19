@@ -8,6 +8,7 @@ node_modules
 .tmp
 .cache
 dist
+release
 webpack.statistics*
 
 # OS generated files
@@ -18,3 +19,5 @@ docs
 
 # Coverage reports
 coverage
+
+*.bun-build

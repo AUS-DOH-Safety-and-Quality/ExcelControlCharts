@@ -21,11 +21,14 @@
 <body class="app-root">
 
 <header class="app-header">
-    <img class="app-logo" width="64" height="64" src="../../assets/logo-filled.png" alt="Excel Control Charts logo" />
+    <img class="app-logo" width="64" height="64" src="../../assets/spc_excel_add_in_logo_300_300.png" alt="Excel Control Charts logo" />
     <div class="app-title-wrap">
         <h1 class="app-title">Excel Control Charts</h1>
         <p class="app-subtitle">Create SPC and Funnel charts in Excel</p>
     </div>
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-pressed="false" aria-label="Switch to dark mode">
+        <span id="theme-toggle-label" class="theme-toggle__label">Dark mode</span>
+    </button>
 </header>
 
 
@@ -112,6 +115,23 @@
             <option value="" disabled selected>Select SD (Xbar)</option>
         </select>
     </div>
+
+    <div class="field field--full" id="spc-date-range-filter-field" hidden>
+        <label for="spc-date-range-start">Included date range</label>
+        <div class="date-range-filter">
+            <div id="spc-date-range-summary" class="date-range-filter__summary">Select a date-based category column to enable filtering.</div>
+            <div class="date-range-filter__row">
+                <label for="spc-date-range-start" class="date-range-filter__label">Start</label>
+                <input id="spc-date-range-start" class="date-range-filter__slider" type="range" min="0" max="0" value="0" disabled />
+                <output id="spc-date-range-start-label" class="date-range-filter__value">-</output>
+            </div>
+            <div class="date-range-filter__row">
+                <label for="spc-date-range-end" class="date-range-filter__label">End</label>
+                <input id="spc-date-range-end" class="date-range-filter__slider" type="range" min="0" max="0" value="0" disabled />
+                <output id="spc-date-range-end-label" class="date-range-filter__value">-</output>
+            </div>
+        </div>
+    </div>
 </div>
 <!-- End of dropdown options -->
 </section>
@@ -132,27 +152,10 @@
                             <input id="setting-title-color" class="color" type="color" value="#111111" />
                         </div>
                         <div class="field">
-                            <label for="setting-show-labels">Show value labels</label>
-                            <select id="setting-show-labels" class="select" title="Show value labels">
-                                <option value="auto" selected>Auto (visual default)</option>
-                                <option value="on">On</option>
-                                <option value="off">Off</option>
-                            </select>
-                        </div>
-                        <div class="field">
-                            <label for="setting-theme">Theme</label>
-                            <select id="setting-theme" class="select" title="Theme">
-                                <option value="system" selected>Match system</option>
-                                <option value="light">Light</option>
-                                <option value="dark">Dark</option>
-                            </select>
-                        </div>
-                        <div class="field">
-                            <label for="setting-width">Preview width</label>
-                            <select id="setting-width" class="select" title="Preview width">
-                                <option value="auto" selected>Auto (fit preview)</option>
-                                <option value="480">480px</option>
-                                <option value="640">640px</option>
+                            <label for="setting-show-date-range">Show date range</label>
+                            <select id="setting-show-date-range" class="select" title="Show date range">
+                                <option value="true" selected>On</option>
+                                <option value="false">Off</option>
                             </select>
                         </div>
                     </div>
@@ -171,8 +174,21 @@
     <div id="spc-data-settings-grid" class="form-grid"></div>
 </details>
 
+<details class="form-details" id="spc-nhs-settings">
+    <summary>
+        <span>NHS / Pattern Settings</span>
+        <span class="chevron" aria-hidden="true"></span>
+    </summary>
+    <div id="spc-nhs-settings-grid" class="form-grid"></div>
+</details>
 
-<p class="hint">Settings affect preview only for now and won’t change the Excel image yet.</p>
+<details class="form-details" id="spc-date-settings">
+    <summary>
+        <span>Date Formatting</span>
+        <span class="chevron" aria-hidden="true"></span>
+    </summary>
+    <div id="spc-date-settings-grid" class="form-grid"></div>
+</details>
                 </section>
 </div>
 

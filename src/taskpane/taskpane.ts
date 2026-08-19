@@ -1,15 +1,19 @@
 /// <reference types="@types/office-js" />
 
-import { makeConstructorArgs, makeUpdateValues } from "../utilities/commonUtils";
+import { makeConstructorArgs, makeUpdateValues } from "../utilities/previewDataUtils";
 import { renderSpcDataSettings } from "../utilities/renderSpcDataSettings";
+import { patchSpcVisualSettingsForTaskpane } from "../utilities/spcVisualSettingsCompat";
+import { attachFieldInfo } from "../utilities/uiFields";
+import dateSettingsToFormatOptions from "../PowerBI-SPC/src/Functions/dateSettingsToFormatOptions";
+import formatDateParts from "../PowerBI-SPC/src/Functions/formatDateParts";
 import { Visual as spcVisualClass } from "../PowerBI-SPC/src/visual";
 import { Visual as funnelVisualClass } from "../PowerBI-Funnels/src/visual";
 import {
-  defaultSettingsString as spcDefaultSettingsString,
+  defaultSettings as spcDefaultSettings,
   type settingsValueType as spcDefaultSettingsType,
 } from "../PowerBI-SPC/src/settings";
 import {
-  defaultSettingsString as funnelDefaultSettingsString,
+  defaultSettings as funnelDefaultSettings,
   type settingsValueType as funnelDefaultSettingsType,
 } from "../PowerBI-Funnels/src/settings";
 
@@ -22,15 +26,29 @@ funnelDiv.className = "funnel-container";
 funnelDiv.setAttribute("hidden", "true");
 
 const spcVisual = new spcVisualClass(makeConstructorArgs(spcDiv));
+patchSpcVisualSettingsForTaskpane(spcVisual);
 const funnelVisual = new funnelVisualClass(makeConstructorArgs(funnelDiv));
 
-const spcInputSettings = JSON.parse(spcDefaultSettingsString) as spcDefaultSettingsType;
-spcInputSettings.canvas.left_padding += 50;
-spcInputSettings.canvas.lower_padding += 50;
+const spcInputSettings = structuredClone(spcDefaultSettings) as spcDefaultSettingsType;
+const spcBaseCanvasPadding = {
+  left: spcInputSettings.canvas.left_padding + 50,
+  lower: spcInputSettings.canvas.lower_padding + 50,
+  upper: spcInputSettings.canvas.upper_padding,
+  right: spcInputSettings.canvas.right_padding,
+};
+spcInputSettings.canvas.left_padding = spcBaseCanvasPadding.left;
+spcInputSettings.canvas.lower_padding = spcBaseCanvasPadding.lower;
 
-const funnelInputSettings = JSON.parse(funnelDefaultSettingsString) as funnelDefaultSettingsType;
-funnelInputSettings.canvas.left_padding += 50;
-funnelInputSettings.canvas.lower_padding += 25;
+const funnelInputSettings = structuredClone(funnelDefaultSettings) as funnelDefaultSettingsType;
+funnelInputSettings.labels.show_labels = false;
+const funnelBaseCanvasPadding = {
+  left: funnelInputSettings.canvas.left_padding + 50,
+  lower: funnelInputSettings.canvas.lower_padding + 25,
+  upper: funnelInputSettings.canvas.upper_padding,
+  right: funnelInputSettings.canvas.right_padding,
+};
+funnelInputSettings.canvas.left_padding = funnelBaseCanvasPadding.left;
+funnelInputSettings.canvas.lower_padding = funnelBaseCanvasPadding.lower;
 
 const aggregations: Record<string, string> = {
   numerators: "sum",
@@ -38,9 +56,527 @@ const aggregations: Record<string, string> = {
   xbar_sds: "first",
 };
 
+function getChartAggregations(chartFamily: ChartFamily): Record<string, string> {
+  if (chartFamily === "funnel" && funnelInputSettings.labels.show_labels) {
+    return {
+      ...aggregations,
+      labels: "first",
+    };
+  }
+  return aggregations;
+}
+
+type RawDataRow = {
+  categories: string | Date | null;
+  numerators: number;
+  denominators?: number | undefined;
+  xbar_sds?: number | undefined;
+  labels?: string | undefined;
+};
+
+type ThemeMode = "light" | "dark";
+type ChartFamily = "spc" | "funnel";
+
+type SpcDateRangeFilterState = {
+  availableDates: Date[];
+  startIndex: number;
+  endIndex: number;
+  enabled: boolean;
+};
+
+const themeStorageKey = "excel-control-charts-theme";
+const spcDateRangeFilterState: SpcDateRangeFilterState = {
+  availableDates: [],
+  startIndex: 0,
+  endIndex: 0,
+  enabled: false,
+};
+
+function attachStaticFieldHelpText() {
+  const helpItems: Array<[selector: string, helpText: string]> = [
+    ["#charttype-label", "Choose whether to build an SPC control chart or a funnel plot."],
+    [
+      'label[for="worksheet-selector"]',
+      "Choose the worksheet that contains the source table for the chart.",
+    ],
+    ['label[for="table-selector"]', "Choose the Excel table that supplies the chart data."],
+    [
+      'label[for="category-selector"]',
+      "Choose the column used for dates, categories, or x-axis group labels.",
+    ],
+    [
+      'label[for="numerator-selector"]',
+      "Choose the main measure that will be plotted on the chart.",
+    ],
+    [
+      'label[for="denominator-selector"]',
+      "Choose the denominator or population column when the selected chart type requires one.",
+    ],
+    [
+      'label[for="sd-selector"]',
+      "Choose the standard deviation column required for Xbar charts.",
+    ],
+    [
+      "#spc-date-range-filter-field > label",
+      "For SPC date categories, limit the preview and created chart to the selected date window.",
+    ],
+    [
+      ".date-range-filter__row:first-of-type label",
+      "Choose the first date to include in the SPC chart range.",
+    ],
+    [
+      ".date-range-filter__row:last-of-type label",
+      "Choose the last date to include in the SPC chart range.",
+    ],
+    ['label[for="setting-chart-title"]', "Optional title shown above the chart."],
+    ['label[for="setting-title-size"]', "Set the chart title size in points."],
+    ['label[for="setting-title-color"]', "Choose the color used for the chart title text."],
+    [
+      'label[for="setting-show-date-range"]',
+      "Show or hide the formatted SPC date range beneath the chart title.",
+    ],
+  ];
+
+  helpItems.forEach(([selector, helpText]) => {
+    const label = document.querySelector(selector) as HTMLElement | null;
+    if (label) {
+      attachFieldInfo(label, helpText);
+    }
+  });
+}
+
+function getStoredTheme(): ThemeMode | null {
+  try {
+    const value = window.localStorage.getItem(themeStorageKey);
+    return value === "light" || value === "dark" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function getPreferredTheme(): ThemeMode {
+  const storedTheme = getStoredTheme();
+  if (storedTheme) return storedTheme;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme: ThemeMode) {
+  const root = document.body;
+  const toggle = document.getElementById("theme-toggle") as HTMLButtonElement | null;
+  const label = document.getElementById("theme-toggle-label") as HTMLElement | null;
+  const isDark = theme === "dark";
+
+  root.dataset.theme = theme;
+  toggle?.setAttribute("aria-pressed", String(isDark));
+  toggle?.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+
+  if (label) {
+    label.textContent = isDark ? "Light mode" : "Dark mode";
+  }
+
+  try {
+    window.localStorage.setItem(themeStorageKey, theme);
+  } catch {
+    // Ignore storage failures and keep the in-memory theme.
+  }
+}
+
+function toggleTheme() {
+  applyTheme(document.body.dataset.theme === "dark" ? "light" : "dark");
+}
+
+function isValidDateValue(value: unknown): value is Date {
+  return value instanceof Date && Number.isFinite(value.getTime());
+}
+
+function getChartTitleText(): string {
+  return (
+    (document.getElementById("setting-chart-title") as HTMLInputElement | null)?.value || ""
+  ).trim();
+}
+
+function getChartTitleSize(): number {
+  const raw = (document.getElementById("setting-title-size") as HTMLInputElement | null)?.value;
+  return Math.min(48, Math.max(10, parseInt(raw || "16", 10) || 16));
+}
+
+function getChartTitleColor(): string {
+  return (
+    (document.getElementById("setting-title-color") as HTMLInputElement | null)?.value || "#111111"
+  );
+}
+
+function shouldShowDateRange(): boolean {
+  const dateRangeSel = document.getElementById(
+    "setting-show-date-range"
+  ) as HTMLSelectElement | null;
+  return parseBoolean(dateRangeSel?.value, true);
+}
+
+function updateDateRangeSettingVisibility(chartFamily: ChartFamily) {
+  const dateRangeField = document.getElementById("setting-show-date-range")?.closest(
+    ".field"
+  ) as HTMLElement | null;
+  if (!dateRangeField) {
+    return;
+  }
+
+  const shouldShow = chartFamily === "spc";
+  dateRangeField.hidden = !shouldShow;
+  dateRangeField.style.display = shouldShow ? "" : "none";
+}
+
+function formatDateSliderLabel(date: Date): string {
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+}
+
+function getSpcDateRangeFilterElements() {
+  return {
+    field: document.getElementById("spc-date-range-filter-field") as HTMLElement | null,
+    summary: document.getElementById("spc-date-range-summary") as HTMLElement | null,
+    startInput: document.getElementById("spc-date-range-start") as HTMLInputElement | null,
+    endInput: document.getElementById("spc-date-range-end") as HTMLInputElement | null,
+    startLabel: document.getElementById("spc-date-range-start-label") as HTMLOutputElement | null,
+    endLabel: document.getElementById("spc-date-range-end-label") as HTMLOutputElement | null,
+  };
+}
+
+function rawDataSupportsDateFiltering(rawData: RawDataRow[]): boolean {
+  return rawData.length > 0 && rawData.every((row) => isValidDateValue(row.categories));
+}
+
+function getUniqueSortedDates(rawData: RawDataRow[]): Date[] {
+  const uniqueDates = new Map<number, Date>();
+
+  rawData.forEach((row) => {
+    if (!isValidDateValue(row.categories)) {
+      return;
+    }
+
+    const timestamp = row.categories.getTime();
+    if (!uniqueDates.has(timestamp)) {
+      uniqueDates.set(timestamp, row.categories);
+    }
+  });
+
+  return Array.from(uniqueDates.values()).sort((left, right) => left.getTime() - right.getTime());
+}
+
+function updateSpcDateRangeFilterUi() {
+  const { field, summary, startInput, endInput, startLabel, endLabel } =
+    getSpcDateRangeFilterElements();
+  if (!field || !summary || !startInput || !endInput || !startLabel || !endLabel) {
+    return;
+  }
+
+  const shouldShow =
+    getSelectedChartFamily() === "spc" &&
+    spcDateRangeFilterState.enabled &&
+    spcDateRangeFilterState.availableDates.length > 0;
+
+  field.hidden = !shouldShow;
+  field.style.display = shouldShow ? "" : "none";
+
+  if (!shouldShow) {
+    summary.textContent = "Select a date-based category column to enable filtering.";
+    startInput.disabled = true;
+    endInput.disabled = true;
+    startInput.min = "0";
+    startInput.max = "0";
+    endInput.min = "0";
+    endInput.max = "0";
+    startInput.value = "0";
+    endInput.value = "0";
+    startLabel.value = "-";
+    startLabel.textContent = "-";
+    endLabel.value = "-";
+    endLabel.textContent = "-";
+    return;
+  }
+
+  const maxIndex = spcDateRangeFilterState.availableDates.length - 1;
+  spcDateRangeFilterState.startIndex = Math.max(
+    0,
+    Math.min(spcDateRangeFilterState.startIndex, maxIndex)
+  );
+  spcDateRangeFilterState.endIndex = Math.max(
+    spcDateRangeFilterState.startIndex,
+    Math.min(spcDateRangeFilterState.endIndex, maxIndex)
+  );
+
+  startInput.disabled = maxIndex === 0;
+  endInput.disabled = maxIndex === 0;
+  startInput.min = "0";
+  endInput.min = "0";
+  startInput.max = String(maxIndex);
+  endInput.max = String(maxIndex);
+  startInput.value = String(spcDateRangeFilterState.startIndex);
+  endInput.value = String(spcDateRangeFilterState.endIndex);
+
+  const startDate = spcDateRangeFilterState.availableDates[spcDateRangeFilterState.startIndex];
+  const endDate = spcDateRangeFilterState.availableDates[spcDateRangeFilterState.endIndex];
+  const startText = formatDateSliderLabel(startDate);
+  const endText = formatDateSliderLabel(endDate);
+  const includedDates = spcDateRangeFilterState.endIndex - spcDateRangeFilterState.startIndex + 1;
+
+  startLabel.value = startText;
+  startLabel.textContent = startText;
+  endLabel.value = endText;
+  endLabel.textContent = endText;
+  summary.textContent =
+    includedDates === 1
+      ? `Including ${startText}`
+      : `Including ${startText} to ${endText} (${includedDates} dates)`;
+}
+
+function resetSpcDateRangeFilter() {
+  spcDateRangeFilterState.availableDates = [];
+  spcDateRangeFilterState.startIndex = 0;
+  spcDateRangeFilterState.endIndex = 0;
+  spcDateRangeFilterState.enabled = false;
+  updateSpcDateRangeFilterUi();
+}
+
+function refreshSpcDateRangeFilterFromRawData(rawData: RawDataRow[]) {
+  if (!rawDataSupportsDateFiltering(rawData)) {
+    resetSpcDateRangeFilter();
+    return;
+  }
+
+  const availableDates = getUniqueSortedDates(rawData);
+  if (!availableDates.length) {
+    resetSpcDateRangeFilter();
+    return;
+  }
+
+  spcDateRangeFilterState.availableDates = availableDates;
+  spcDateRangeFilterState.startIndex = 0;
+  spcDateRangeFilterState.endIndex = availableDates.length - 1;
+  spcDateRangeFilterState.enabled = true;
+  updateSpcDateRangeFilterUi();
+}
+
+function applySpcDateRangeFilter(rawData: RawDataRow[]): RawDataRow[] {
+  if (!spcDateRangeFilterState.enabled || !rawDataSupportsDateFiltering(rawData)) {
+    return rawData;
+  }
+
+  const startDate = spcDateRangeFilterState.availableDates[spcDateRangeFilterState.startIndex];
+  const endDate = spcDateRangeFilterState.availableDates[spcDateRangeFilterState.endIndex];
+  if (!startDate || !endDate) {
+    return rawData;
+  }
+
+  const startTime = startDate.getTime();
+  const endTime = endDate.getTime();
+  return rawData.filter(
+    (row) =>
+      isValidDateValue(row.categories) &&
+      row.categories.getTime() >= startTime &&
+      row.categories.getTime() <= endTime
+  );
+}
+
+function fitTextToWidth(text: string, maxWidthPx: number, fontSizePx: number): string {
+  const maxChars = Math.max(8, Math.floor(maxWidthPx / (fontSizePx * 0.56)));
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
+}
+
+function formatDateForDisplay(date: Date): string {
+  const dateSettings = spcInputSettings.dates;
+  const formatOptions = dateSettingsToFormatOptions(dateSettings);
+  const locale = dateSettings.date_format_locale as "en-GB" | "en-US";
+  const dayElement = locale === "en-GB" ? "day" : "month";
+  const monthElement = locale === "en-GB" ? "month" : "day";
+  const datePartsRecord = formatDateParts(date, locale, formatOptions);
+  const datePartStrings = [
+    `${datePartsRecord.weekday} ${datePartsRecord[dayElement]}`.trim(),
+    datePartsRecord[monthElement],
+    datePartsRecord.year,
+  ];
+
+  return datePartStrings.filter((part) => String(part).trim()).join(dateSettings.date_format_delim);
+}
+
+function formatDateRange(rawData: RawDataRow[]): string | null {
+  const dates = rawData
+    .map((row) => row.categories)
+    .filter(isValidDateValue)
+    .slice()
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (!dates.length) return null;
+
+  const first = formatDateForDisplay(dates[0]);
+  const last = formatDateForDisplay(dates[dates.length - 1]);
+  return first === last ? first : `${first} to ${last}`;
+}
+
+function rawDataSupportsDateFormatting(rawData: RawDataRow[]): boolean {
+  const categories = rawData.map((row) => row.categories);
+  return (
+    categories.some(isValidDateValue) &&
+    categories.every((category) => category === null || isValidDateValue(category))
+  );
+}
+
+function updateHeaderCanvasPadding(controlChartType: string, includeDateRange: boolean) {
+  const titleText = getChartTitleText();
+  const titleSize = getChartTitleSize();
+  const includesDateRange = controlChartType === "spc" && includeDateRange && shouldShowDateRange();
+  let headerPadding = 0;
+
+  if (titleText) headerPadding += titleSize + 8;
+  if (includesDateRange) headerPadding += 17;
+  if (headerPadding > 0) headerPadding += 8;
+
+  if (controlChartType === "spc") {
+    spcInputSettings.canvas.upper_padding = spcBaseCanvasPadding.upper + headerPadding;
+  } else {
+    funnelInputSettings.canvas.upper_padding =
+      funnelBaseCanvasPadding.upper + (titleText ? titleSize + 16 : 0);
+  }
+}
+
+function applyFunnelCategoryLabelStyle() {
+  funnelInputSettings.scatter.use_group_text = false;
+
+  if (!funnelInputSettings.labels.show_labels) {
+    return;
+  }
+
+  funnelInputSettings.labels.label_position = "top" as any;
+  funnelInputSettings.labels.label_y_offset = 0;
+  funnelInputSettings.labels.label_line_offset = 0;
+  funnelInputSettings.labels.label_angle_offset = 90;
+  funnelInputSettings.labels.label_line_width = 0;
+  funnelInputSettings.labels.label_line_colour = "transparent";
+  funnelInputSettings.labels.label_line_max_length = 28;
+  funnelInputSettings.labels.label_marker_show = false;
+  funnelInputSettings.labels.label_marker_offset = 0;
+  funnelInputSettings.labels.label_marker_size = 0;
+  funnelInputSettings.labels.label_marker_colour = "transparent";
+  funnelInputSettings.labels.label_marker_outline_colour = "transparent";
+}
+
+function drawChartFrameAndHeader(currVisual: any, rawData: RawDataRow[], controlChartType: string) {
+  const svg = currVisual.svg;
+  svg.selectAll(".chart-background").remove();
+  svg.selectAll(".chart-title,.chart-subtitle").remove();
+  svg
+    .append("rect")
+    .attr("class", "chart-background")
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .attr("fill", "white")
+    .lower();
+
+  const titleText = getChartTitleText();
+  const titleSize = getChartTitleSize();
+  const titleColor = getChartTitleColor();
+  const dateRange =
+    controlChartType === "spc" && shouldShowDateRange() ? formatDateRange(rawData) : null;
+
+  if (!titleText && !dateRange) return;
+
+  const plotProps: any = currVisual?.plotProperties || {};
+  const svgWidth = Number(svg.attr("width")) || 640;
+  const x = plotProps.xAxis?.start_padding || 20;
+  const maxTextWidth = Math.max(80, svgWidth - x - 16);
+  let nextY = 0;
+
+  if (titleText) {
+    nextY = titleSize + 4;
+    svg
+      .append("text")
+      .attr("class", "chart-title")
+      .attr("x", x)
+      .attr("y", nextY)
+      .attr("font-family", "Segoe UI, Arial, sans-serif")
+      .attr("font-weight", "700")
+      .attr("font-size", titleSize)
+      .attr("fill", titleColor)
+      .text(fitTextToWidth(titleText, maxTextWidth, titleSize));
+  }
+
+  if (dateRange) {
+    const subtitleSize = 11;
+    nextY = titleText ? nextY + subtitleSize + 6 : subtitleSize + 5;
+    svg
+      .append("text")
+      .attr("class", "chart-subtitle")
+      .attr("x", x)
+      .attr("y", nextY)
+      .attr("font-family", "Segoe UI, Arial, sans-serif")
+      .attr("font-size", subtitleSize)
+      .attr("fill", "#465169")
+      .text(fitTextToWidth(`Date range: ${dateRange}`, maxTextWidth, subtitleSize));
+  }
+}
+
 function getSelectedSpcChartType(): string {
   const el = document.getElementById("spc-chart-type") as HTMLSelectElement | null;
   return el?.value || "i";
+}
+
+function spcChartTypeHasControlLimits(chartType: string = getSelectedSpcChartType()): boolean {
+  return chartType !== "run";
+}
+
+function canRenderSpcAssuranceIcons(
+  altTarget: number | null,
+  improvementDirection: string,
+  chartType: string = getSelectedSpcChartType()
+): boolean {
+  return altTarget !== null && improvementDirection !== "neutral" && spcChartTypeHasControlLimits(chartType);
+}
+
+function getSelectedChartFamily(): ChartFamily {
+  const value = (document.getElementById("controlchart-selector") as HTMLInputElement | null)
+    ?.value;
+  return value === "funnel" ? "funnel" : "spc";
+}
+
+async function updateSpcDateRangeFilterControls() {
+  if (getSelectedChartFamily() !== "spc") {
+    resetSpcDateRangeFilter();
+    return;
+  }
+
+  const selectedWorksheetName = (
+    document.getElementById("worksheet-selector") as HTMLSelectElement | null
+  )?.value;
+  const selectedTableName = (document.getElementById("table-selector") as HTMLSelectElement | null)
+    ?.value;
+  const selectedCategoryColumn = (
+    document.getElementById("category-selector") as HTMLSelectElement | null
+  )?.value;
+
+  if (!selectedWorksheetName || !selectedTableName || !selectedCategoryColumn) {
+    resetSpcDateRangeFilter();
+    return;
+  }
+
+  await Excel.run(async (context) => {
+    const worksheet = context.workbook.worksheets.getItem(selectedWorksheetName);
+    const table = worksheet.tables.getItem(selectedTableName);
+    const categoryColumn = table.columns
+      .getItem(selectedCategoryColumn)
+      .getDataBodyRange()
+      .load("values");
+    await context.sync();
+
+    const rawData: RawDataRow[] = categoryColumn.values.flat().map((value) => ({
+      categories: fromExcelDate(value),
+      numerators: 0,
+    }));
+    refreshSpcDateRangeFilterFromRawData(rawData);
+  });
 }
 
 function resetSelectToPlaceholder(id: string) {
@@ -139,26 +675,68 @@ function updateSpcInputSettingsFromUi() {
   const subsetPointsFromSel = document.getElementById(
     "spc-subset-points-from"
   ) as HTMLSelectElement | null;
-  const showDateSel = document.getElementById("spc-ttip-show-date") as HTMLSelectElement | null;
-  const labelDateInput = document.getElementById("spc-ttip-label-date") as HTMLInputElement | null;
-  const showNumeratorSel = document.getElementById(
-    "spc-ttip-show-numerator"
-  ) as HTMLSelectElement | null;
-  const labelNumeratorInput = document.getElementById(
-    "spc-ttip-label-numerator"
-  ) as HTMLInputElement | null;
-  const showDenominatorSel = document.getElementById(
-    "spc-ttip-show-denominator"
-  ) as HTMLSelectElement | null;
-  const labelDenominatorInput = document.getElementById(
-    "spc-ttip-label-denominator"
-  ) as HTMLInputElement | null;
-  const showValueSel = document.getElementById("spc-ttip-show-value") as HTMLSelectElement | null;
-  const labelValueInput = document.getElementById(
-    "spc-ttip-label-value"
-  ) as HTMLInputElement | null;
   const llTruncateInput = document.getElementById("spc-ll-truncate") as HTMLInputElement | null;
   const ulTruncateInput = document.getElementById("spc-ul-truncate") as HTMLInputElement | null;
+  const showVariationSel = document.getElementById(
+    "spc-show-variation-icons"
+  ) as HTMLSelectElement | null;
+  const flagLastPointSel = document.getElementById(
+    "spc-flag-last-point"
+  ) as HTMLSelectElement | null;
+  const variationLocationSel = document.getElementById(
+    "spc-variation-location"
+  ) as HTMLSelectElement | null;
+  const variationScalingInput = document.getElementById(
+    "spc-variation-scaling"
+  ) as HTMLInputElement | null;
+  const showAssuranceSel = document.getElementById(
+    "spc-show-assurance-icons"
+  ) as HTMLSelectElement | null;
+  const assuranceLocationSel = document.getElementById(
+    "spc-assurance-location"
+  ) as HTMLSelectElement | null;
+  const assuranceScalingInput = document.getElementById(
+    "spc-assurance-scaling"
+  ) as HTMLInputElement | null;
+  const altTargetInput = document.getElementById("spc-alt-target") as HTMLInputElement | null;
+  const altTargetLabelSel = document.getElementById(
+    "spc-alt-target-label"
+  ) as HTMLSelectElement | null;
+  const improvementDirectionSel = document.getElementById(
+    "spc-improvement-direction"
+  ) as HTMLSelectElement | null;
+  const astronomicalPointsSel = document.getElementById(
+    "spc-astronomical-points"
+  ) as HTMLSelectElement | null;
+  const astronomicalLimitSel = document.getElementById(
+    "spc-astronomical-limit"
+  ) as HTMLSelectElement | null;
+  const trendPatternSel = document.getElementById("spc-trend-pattern") as HTMLSelectElement | null;
+  const trendPointsInput = document.getElementById("spc-trend-points") as HTMLInputElement | null;
+  const twoInThreeSel = document.getElementById("spc-two-in-three") as HTMLSelectElement | null;
+  const twoInThreeHighlightSeriesSel = document.getElementById(
+    "spc-two-in-three-highlight-series"
+  ) as HTMLSelectElement | null;
+  const twoInThreeLimitSel = document.getElementById(
+    "spc-two-in-three-limit"
+  ) as HTMLSelectElement | null;
+  const shiftPatternSel = document.getElementById("spc-shift-pattern") as HTMLSelectElement | null;
+  const shiftPointsInput = document.getElementById("spc-shift-points") as HTMLInputElement | null;
+  const dateFormatDaySel = document.getElementById(
+    "spc-date-format-day"
+  ) as HTMLSelectElement | null;
+  const dateFormatMonthSel = document.getElementById(
+    "spc-date-format-month"
+  ) as HTMLSelectElement | null;
+  const dateFormatYearSel = document.getElementById(
+    "spc-date-format-year"
+  ) as HTMLSelectElement | null;
+  const dateFormatDelimSel = document.getElementById(
+    "spc-date-format-delim"
+  ) as HTMLSelectElement | null;
+  const dateFormatLocaleSel = document.getElementById(
+    "spc-date-format-locale"
+  ) as HTMLSelectElement | null;
 
   if (!spcInputSettings?.spc) {
     return;
@@ -203,56 +781,237 @@ function updateSpcInputSettingsFromUi() {
   if (subsetPointsFromSel) {
     spcInputSettings.spc.subset_points_from = subsetPointsFromSel.value as any;
   }
-  if (showDateSel) {
-    spcInputSettings.spc.ttip_show_date = parseBoolean(
-      showDateSel.value,
-      spcInputSettings.spc.ttip_show_date
-    );
-  }
-  if (labelDateInput) {
-    const next = labelDateInput.value.trim();
-    if (next.length) spcInputSettings.spc.ttip_label_date = next as any;
-  }
-  if (showNumeratorSel) {
-    spcInputSettings.spc.ttip_show_numerator = parseBoolean(
-      showNumeratorSel.value,
-      spcInputSettings.spc.ttip_show_numerator
-    );
-  }
-  if (labelNumeratorInput) {
-    const next = labelNumeratorInput.value.trim();
-    if (next.length) spcInputSettings.spc.ttip_label_numerator = next as any;
-  }
-  if (showDenominatorSel) {
-    spcInputSettings.spc.ttip_show_denominator = parseBoolean(
-      showDenominatorSel.value,
-      spcInputSettings.spc.ttip_show_denominator
-    );
-  }
-  if (labelDenominatorInput) {
-    const next = labelDenominatorInput.value.trim();
-    if (next.length) spcInputSettings.spc.ttip_label_denominator = next as any;
-  }
-  if (showValueSel) {
-    spcInputSettings.spc.ttip_show_value = parseBoolean(
-      showValueSel.value,
-      spcInputSettings.spc.ttip_show_value
-    );
-  }
-  if (labelValueInput) {
-    const next = labelValueInput.value.trim();
-    if (next.length) spcInputSettings.spc.ttip_label_value = next as any;
-  }
   if (llTruncateInput) {
     spcInputSettings.spc.ll_truncate = parseOptionalNumber(llTruncateInput.value) as any;
   }
   if (ulTruncateInput) {
     spcInputSettings.spc.ul_truncate = parseOptionalNumber(ulTruncateInput.value) as any;
   }
+  if (improvementDirectionSel) {
+    spcInputSettings.outliers.improvement_direction = improvementDirectionSel.value as any;
+  }
+  if (shiftPatternSel) {
+    spcInputSettings.outliers.shift = parseBoolean(
+      shiftPatternSel.value,
+      spcInputSettings.outliers.shift
+    );
+  }
+  if (shiftPointsInput) {
+    spcInputSettings.outliers.shift_n = parseNumber(
+      shiftPointsInput.value,
+      spcInputSettings.outliers.shift_n,
+      { min: 1 }
+    );
+  }
+  if (showVariationSel) {
+    spcInputSettings.nhs_icons.show_variation_icons = parseBoolean(
+      showVariationSel.value,
+      spcInputSettings.nhs_icons.show_variation_icons
+    );
+  }
+  if (flagLastPointSel) {
+    spcInputSettings.nhs_icons.flag_last_point = parseBoolean(
+      flagLastPointSel.value,
+      spcInputSettings.nhs_icons.flag_last_point
+    );
+  }
+  if (variationLocationSel) {
+    spcInputSettings.nhs_icons.variation_icons_locations = variationLocationSel.value as any;
+  }
+  if (variationScalingInput) {
+    spcInputSettings.nhs_icons.variation_icons_scaling = parseNumber(
+      variationScalingInput.value,
+      spcInputSettings.nhs_icons.variation_icons_scaling,
+      { min: 0 }
+    );
+  }
+  if (assuranceLocationSel) {
+    spcInputSettings.nhs_icons.assurance_icons_locations = assuranceLocationSel.value as any;
+  }
+  if (assuranceScalingInput) {
+    spcInputSettings.nhs_icons.assurance_icons_scaling = parseNumber(
+      assuranceScalingInput.value,
+      spcInputSettings.nhs_icons.assurance_icons_scaling,
+      { min: 0 }
+    );
+  }
+  const altTarget = parseOptionalNumber(altTargetInput?.value);
+  const showAltTargetLabel = altTargetLabelSel?.value === "target_equals";
+  spcInputSettings.lines.alt_target = altTarget as any;
+  spcInputSettings.lines.show_alt_target = altTarget !== null;
+  spcInputSettings.lines.plot_label_show_alt_target = showAltTargetLabel && altTarget !== null;
+  spcInputSettings.lines.plot_label_prefix_alt_target = showAltTargetLabel ? "Target = " : "";
+  if (showAssuranceSel) {
+    const currentImprovementDirection =
+      improvementDirectionSel?.value || spcInputSettings.outliers.improvement_direction;
+    const canShowAssuranceIcons = canRenderSpcAssuranceIcons(
+      altTarget,
+      currentImprovementDirection,
+      getSelectedSpcChartType()
+    );
+    if (!canShowAssuranceIcons) {
+      showAssuranceSel.value = "false";
+    }
+    spcInputSettings.nhs_icons.show_assurance_icons =
+      parseBoolean(showAssuranceSel.value, spcInputSettings.nhs_icons.show_assurance_icons) &&
+      canShowAssuranceIcons;
+  }
+  if (astronomicalPointsSel) {
+    spcInputSettings.outliers.astronomical = parseBoolean(
+      astronomicalPointsSel.value,
+      spcInputSettings.outliers.astronomical
+    );
+  }
+  if (astronomicalLimitSel) {
+    spcInputSettings.outliers.astronomical_limit = astronomicalLimitSel.value as any;
+  }
+  if (trendPatternSel) {
+    spcInputSettings.outliers.trend = parseBoolean(
+      trendPatternSel.value,
+      spcInputSettings.outliers.trend
+    );
+  }
+  if (trendPointsInput) {
+    spcInputSettings.outliers.trend_n = parseNumber(
+      trendPointsInput.value,
+      spcInputSettings.outliers.trend_n,
+      { min: 1 }
+    );
+  }
+  if (twoInThreeSel) {
+    spcInputSettings.outliers.two_in_three = parseBoolean(
+      twoInThreeSel.value,
+      spcInputSettings.outliers.two_in_three
+    );
+  }
+  if (twoInThreeHighlightSeriesSel) {
+    spcInputSettings.outliers.two_in_three_highlight_series = parseBoolean(
+      twoInThreeHighlightSeriesSel.value,
+      spcInputSettings.outliers.two_in_three_highlight_series
+    );
+  }
+  if (twoInThreeLimitSel) {
+    spcInputSettings.outliers.two_in_three_limit = twoInThreeLimitSel.value as any;
+  }
+  if (dateFormatDaySel) {
+    spcInputSettings.dates.date_format_day = dateFormatDaySel.value as any;
+  }
+  if (dateFormatMonthSel) {
+    spcInputSettings.dates.date_format_month = dateFormatMonthSel.value as any;
+  }
+  if (dateFormatYearSel) {
+    spcInputSettings.dates.date_format_year = dateFormatYearSel.value as any;
+  }
+  if (dateFormatDelimSel) {
+    spcInputSettings.dates.date_format_delim = dateFormatDelimSel.value as any;
+  }
+  if (dateFormatLocaleSel) {
+    spcInputSettings.dates.date_format_locale = dateFormatLocaleSel.value as any;
+  }
+}
+
+function updateFunnelInputSettingsFromUi() {
+  const chartTypeSel = document.getElementById("spc-chart-type") as HTMLSelectElement | null;
+  const odAdjustSel = document.getElementById("funnel-od-adjust") as HTMLSelectElement | null;
+  const multiplierInput = document.getElementById("spc-multiplier") as HTMLInputElement | null;
+  const sigFigsInput = document.getElementById("spc-sig-figs") as HTMLInputElement | null;
+  const percLabelsSel = document.getElementById("spc-perc-labels") as HTMLSelectElement | null;
+  const transformationSel = document.getElementById(
+    "funnel-transformation"
+  ) as HTMLSelectElement | null;
+  const llTruncateInput = document.getElementById("spc-ll-truncate") as HTMLInputElement | null;
+  const ulTruncateInput = document.getElementById("spc-ul-truncate") as HTMLInputElement | null;
+  const processFlagTypeSel = document.getElementById(
+    "funnel-process-flag-type"
+  ) as HTMLSelectElement | null;
+  const improvementDirectionSel = document.getElementById(
+    "funnel-improvement-direction"
+  ) as HTMLSelectElement | null;
+  const categoryPointLabelsSel = document.getElementById(
+    "funnel-category-point-labels"
+  ) as HTMLSelectElement | null;
+  const twoSigmaSel = document.getElementById("funnel-two-sigma") as HTMLSelectElement | null;
+  const threeSigmaSel = document.getElementById(
+    "funnel-three-sigma"
+  ) as HTMLSelectElement | null;
+
+  if (!funnelInputSettings?.funnel) {
+    return;
+  }
+
+  if (chartTypeSel) {
+    funnelInputSettings.funnel.chart_type = chartTypeSel.value as any;
+  }
+  if (odAdjustSel) {
+    funnelInputSettings.funnel.od_adjust = odAdjustSel.value as any;
+  }
+  if (multiplierInput) {
+    funnelInputSettings.funnel.multiplier = parseNumber(
+      multiplierInput.value,
+      funnelInputSettings.funnel.multiplier,
+      { min: 0 }
+    );
+  }
+  if (sigFigsInput) {
+    funnelInputSettings.funnel.sig_figs = parseNumber(
+      sigFigsInput.value,
+      funnelInputSettings.funnel.sig_figs,
+      { min: 0, max: 20 }
+    );
+  }
+  if (percLabelsSel) {
+    funnelInputSettings.funnel.perc_labels = percLabelsSel.value as any;
+  }
+  if (transformationSel) {
+    funnelInputSettings.funnel.transformation = transformationSel.value as any;
+  }
+  if (categoryPointLabelsSel) {
+    funnelInputSettings.labels.show_labels = parseBoolean(
+      categoryPointLabelsSel.value,
+      funnelInputSettings.labels.show_labels
+    );
+  }
+  if (llTruncateInput) {
+    funnelInputSettings.funnel.ll_truncate = parseOptionalNumber(llTruncateInput.value) as any;
+  }
+  if (ulTruncateInput) {
+    funnelInputSettings.funnel.ul_truncate = parseOptionalNumber(ulTruncateInput.value) as any;
+  }
+  if (processFlagTypeSel) {
+    funnelInputSettings.outliers.process_flag_type = processFlagTypeSel.value as any;
+  }
+  if (improvementDirectionSel) {
+    funnelInputSettings.outliers.improvement_direction = improvementDirectionSel.value as any;
+  }
+  if (twoSigmaSel) {
+    funnelInputSettings.outliers.two_sigma = parseBoolean(
+      twoSigmaSel.value,
+      funnelInputSettings.outliers.two_sigma
+    );
+  }
+  if (threeSigmaSel) {
+    funnelInputSettings.outliers.three_sigma = parseBoolean(
+      threeSigmaSel.value,
+      funnelInputSettings.outliers.three_sigma
+    );
+  }
+
+  applyFunnelCategoryLabelStyle();
+}
+
+function updateCurrentChartInputSettingsFromUi(chartFamily: ChartFamily = getSelectedChartFamily()) {
+  if (chartFamily === "spc") {
+    updateSpcInputSettingsFromUi();
+  } else {
+    updateFunnelInputSettingsFromUi();
+  }
 }
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
+    applyTheme(getPreferredTheme());
+    attachStaticFieldHelpText();
+
     // Change the display of sideload message so it is hidden
     document.getElementById("sideload-msg")!.style.display = "none";
     // Show the app body. This is the main form
@@ -273,8 +1032,6 @@ Office.onReady((info) => {
       (funnelDiv as HTMLElement).style.height = "100%";
     }
 
-    // Render the Data Settings UI programmatically (reduces hard-coded HTML)
-    renderSpcDataSettings();
     // Populate worksheet selector when dropdown is clicked; tables/columns depend on worksheet
     document.getElementById("worksheet-selector")!.onclick = () => {
       tryCatch(updateWorksheetSelector);
@@ -321,7 +1078,13 @@ Office.onReady((info) => {
         updateActionButtonsEnabledState();
       });
     };
-    catSel.onchange = () => updateActionButtonsEnabledState();
+    catSel.onchange = () => {
+      tryCatch(async () => {
+        await updateSpcDateRangeFilterControls();
+        updateActionButtonsEnabledState();
+        queuePreviewRefresh();
+      });
+    };
     numSel.onchange = () => updateActionButtonsEnabledState();
     denSel.onchange = () => updateActionButtonsEnabledState();
     sdSel && (sdSel.onchange = () => updateActionButtonsEnabledState());
@@ -334,9 +1097,59 @@ Office.onReady((info) => {
     const chartTypeHidden = document.getElementById("controlchart-selector") as HTMLInputElement;
     const toggleSpc = document.getElementById("toggle-spc") as HTMLButtonElement;
     const toggleFunnel = document.getElementById("toggle-funnel") as HTMLButtonElement;
+    const themeToggle = document.getElementById("theme-toggle") as HTMLButtonElement | null;
     const chartTitleInput = document.getElementById("setting-chart-title") as HTMLInputElement;
     const chartTitleSizeInput = document.getElementById("setting-title-size") as HTMLInputElement;
     const chartTitleColorInput = document.getElementById("setting-title-color") as HTMLInputElement;
+    const dateRangeStartInput = document.getElementById(
+      "spc-date-range-start"
+    ) as HTMLInputElement | null;
+    const dateRangeEndInput = document.getElementById(
+      "spc-date-range-end"
+    ) as HTMLInputElement | null;
+    const dynamicSettingsIds = [
+      "spc-chart-type",
+      "spc-outliers-in-limits",
+      "spc-multiplier",
+      "spc-sig-figs",
+      "spc-perc-labels",
+      "spc-split-on-click",
+      "spc-num-points-subset",
+      "spc-subset-points-from",
+      "spc-ll-truncate",
+      "spc-ul-truncate",
+      "spc-show-variation-icons",
+      "spc-flag-last-point",
+      "spc-variation-location",
+      "spc-variation-scaling",
+      "spc-show-assurance-icons",
+      "spc-assurance-location",
+      "spc-assurance-scaling",
+      "spc-alt-target",
+      "spc-alt-target-label",
+      "spc-improvement-direction",
+      "spc-astronomical-points",
+      "spc-astronomical-limit",
+      "spc-trend-pattern",
+      "spc-trend-points",
+      "spc-two-in-three",
+      "spc-two-in-three-highlight-series",
+      "spc-two-in-three-limit",
+      "spc-shift-pattern",
+      "spc-shift-points",
+      "spc-date-format-day",
+      "spc-date-format-month",
+      "spc-date-format-year",
+      "spc-date-format-delim",
+      "spc-date-format-locale",
+      "funnel-od-adjust",
+      "funnel-transformation",
+      "funnel-category-point-labels",
+      "funnel-process-flag-type",
+      "funnel-improvement-direction",
+      "funnel-two-sigma",
+      "funnel-three-sigma",
+    ];
 
     function activateTab(which: "data" | "settings") {
       const isData = which === "data";
@@ -371,21 +1184,53 @@ Office.onReady((info) => {
     // Default to Data tab
     activateTab("data");
 
-    function setChartType(value: "spc" | "funnel") {
+    function bindRenderedSettingsControls() {
+      dynamicSettingsIds.forEach((id) => {
+        const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
+        el?.addEventListener("input", queuePreviewRefresh);
+        el?.addEventListener("change", queuePreviewRefresh);
+      });
+
+      const chartTypeSelect = document.getElementById("spc-chart-type") as HTMLSelectElement | null;
+      chartTypeSelect?.addEventListener("change", () => {
+        updateCurrentChartInputSettingsFromUi();
+        updateSdSelectorVisibility();
+        updateDenominatorSelectorVisibility();
+        updateActionButtonsEnabledState();
+      });
+    }
+
+    function setChartType(value: ChartFamily) {
+      const currentChartFamily = getSelectedChartFamily();
+      if (document.getElementById("spc-chart-type")) {
+        updateCurrentChartInputSettingsFromUi(currentChartFamily);
+      }
+
       chartTypeHidden.value = value;
       const isSpc = value === "spc";
       toggleSpc.classList.toggle("is-active", isSpc);
       toggleFunnel.classList.toggle("is-active", !isSpc);
       toggleSpc.setAttribute("aria-pressed", String(isSpc));
       toggleFunnel.setAttribute("aria-pressed", String(!isSpc));
+
+      renderSpcDataSettings(value, spcInputSettings, funnelInputSettings);
+      updateDateRangeSettingVisibility(value);
+      bindRenderedSettingsControls();
+
+      if (value === "spc") {
+        tryCatch(updateSpcDateRangeFilterControls);
+      } else {
+        resetSpcDateRangeFilter();
+      }
+
       updateSdSelectorVisibility();
       updateDenominatorSelectorVisibility();
       updateActionButtonsEnabledState();
+      queuePreviewRefresh();
     }
     toggleSpc?.addEventListener("click", () => setChartType("spc"));
     toggleFunnel?.addEventListener("click", () => setChartType("funnel"));
-    // Initialize hidden value
-    setChartType("spc");
+    themeToggle?.addEventListener("click", toggleTheme);
 
     // Live preview update on title input (debounced)
     let titleDebounce: number | undefined;
@@ -405,42 +1250,40 @@ Office.onReady((info) => {
     chartTitleSizeInput?.addEventListener("input", queuePreviewRefresh);
     chartTitleColorInput?.addEventListener("input", queuePreviewRefresh);
 
-    // Live preview update on Data Settings controls
-    const dataSettingsIds = [
-      "spc-chart-type",
-      "spc-outliers-in-limits",
-      "spc-multiplier",
-      "spc-sig-figs",
-      "spc-perc-labels",
-      "spc-split-on-click",
-      "spc-num-points-subset",
-      "spc-subset-points-from",
-      "spc-ttip-show-date",
-      "spc-ttip-label-date",
-      "spc-ttip-show-numerator",
-      "spc-ttip-label-numerator",
-      "spc-ttip-show-denominator",
-      "spc-ttip-label-denominator",
-      "spc-ttip-show-value",
-      "spc-ttip-label-value",
-      "spc-ll-truncate",
-      "spc-ul-truncate",
-    ];
-    dataSettingsIds.forEach((id) => {
-      const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
-      el?.addEventListener("input", queuePreviewRefresh);
-      el?.addEventListener("change", queuePreviewRefresh);
-    });
+    function handleDateRangeSliderInput(boundary: "start" | "end") {
+      if (!spcDateRangeFilterState.enabled || !spcDateRangeFilterState.availableDates.length) {
+        return;
+      }
 
-    // Ensure SD selector visibility/required-state tracks chart type
-    const spcChartTypeSel = document.getElementById("spc-chart-type") as HTMLSelectElement | null;
-    spcChartTypeSel?.addEventListener("change", () => {
-      updateSdSelectorVisibility();
-      updateDenominatorSelectorVisibility();
-      updateActionButtonsEnabledState();
-    });
-    updateSdSelectorVisibility();
-    updateDenominatorSelectorVisibility();
+      const targetInput = boundary === "start" ? dateRangeStartInput : dateRangeEndInput;
+      const rawValue = parseInt(targetInput?.value || "0", 10);
+      const maxIndex = spcDateRangeFilterState.availableDates.length - 1;
+      const nextIndex = Math.max(0, Math.min(Number.isFinite(rawValue) ? rawValue : 0, maxIndex));
+
+      if (boundary === "start") {
+        spcDateRangeFilterState.startIndex = Math.min(nextIndex, spcDateRangeFilterState.endIndex);
+      } else {
+        spcDateRangeFilterState.endIndex = Math.max(nextIndex, spcDateRangeFilterState.startIndex);
+      }
+
+      updateSpcDateRangeFilterUi();
+      queuePreviewRefresh();
+    }
+
+    dateRangeStartInput?.addEventListener("input", () => handleDateRangeSliderInput("start"));
+    dateRangeStartInput?.addEventListener("change", () => handleDateRangeSliderInput("start"));
+    dateRangeEndInput?.addEventListener("input", () => handleDateRangeSliderInput("end"));
+    dateRangeEndInput?.addEventListener("change", () => handleDateRangeSliderInput("end"));
+
+    const dateRangeSel = document.getElementById(
+      "setting-show-date-range"
+    ) as HTMLSelectElement | null;
+    dateRangeSel?.addEventListener("input", queuePreviewRefresh);
+    dateRangeSel?.addEventListener("change", queuePreviewRefresh);
+
+    // Initialize settings UI for the default chart family after handlers are ready.
+    setChartType("spc");
+
     // Initial population of worksheet selector, then tables/columns
     tryCatch(async () => {
       await updateWorksheetSelector();
@@ -477,12 +1320,28 @@ function clearColumnSelectors() {
       '<option value="" disabled selected>Select denominator</option>';
   if (sdSelector)
     sdSelector.innerHTML = '<option value="" disabled selected>Select SD (Xbar)</option>';
+  resetSpcDateRangeFilter();
   updateSdSelectorVisibility();
   updateDenominatorSelectorVisibility();
 }
 
-function fromExcelDate(excelDate: number): Date {
-  return new Date((excelDate - (25567 + 2)) * 86400 * 1000);
+function fromExcelDate(excelValue: unknown): Date | null {
+  if (excelValue instanceof Date) {
+    return isValidDateValue(excelValue) ? excelValue : null;
+  }
+
+  if (typeof excelValue === "number" && Number.isFinite(excelValue)) {
+    const parsed = new Date((excelValue - (25567 + 2)) * 86400 * 1000);
+    return isValidDateValue(parsed) ? parsed : null;
+  }
+
+  if (typeof excelValue === "string") {
+    if (!excelValue.trim()) return null;
+    const parsed = new Date(excelValue);
+    return isValidDateValue(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 async function updateTableSelector() {
@@ -597,6 +1456,7 @@ async function updateColumnSelectors() {
         sdSelector.appendChild(option4);
       }
     });
+    resetSpcDateRangeFilter();
     // Columns reset, so ensure buttons reflect incomplete selection
     updateSdSelectorVisibility();
     updateActionButtonsEnabledState();
@@ -672,9 +1532,7 @@ async function createPlot() {
       .load("values");
     const controlChartType = (document.getElementById("controlchart-selector") as HTMLInputElement)
       .value;
-    if (controlChartType === "spc") {
-      updateSpcInputSettingsFromUi();
-    }
+    updateCurrentChartInputSettingsFromUi(controlChartType as ChartFamily);
 
     const denomRequired = isDenominatorRequired();
     if (denomRequired && !selectedDenominatorColumn) {
@@ -698,15 +1556,16 @@ async function createPlot() {
       ? table.columns.getItem(selectedSdColumn!).getDataBodyRange().load("values")
       : null;
     await context.sync();
-    if (controlChartType === "spc") {
-      updateSpcInputSettingsFromUi();
-    }
+    updateCurrentChartInputSettingsFromUi(controlChartType as ChartFamily);
 
-    const rawData = categoryColumn.values.flat().map((cat, i) => {
+    const rawData: RawDataRow[] = categoryColumn.values.flat().map((cat, i) => {
       const row: any = {
         categories: controlChartType === "spc" ? fromExcelDate(cat) : cat,
         numerators: numeratorsColumn.values.flat()[i],
       };
+      if (controlChartType === "funnel" && funnelInputSettings.labels.show_labels) {
+        row.labels = cat == null ? "" : String(cat);
+      }
       if (denominatorsColumn) {
         row.denominators = denominatorsColumn.values.flat()[i];
       }
@@ -715,12 +1574,18 @@ async function createPlot() {
       }
       return row;
     });
+    const filteredRawData =
+      controlChartType === "spc" ? applySpcDateRangeFilter(rawData) : rawData;
+    const useFormattedDates =
+      controlChartType === "spc" && rawDataSupportsDateFormatting(filteredRawData);
+    updateHeaderCanvasPadding(controlChartType, useFormattedDates);
 
     var updateArgs = {
       dataViews: makeUpdateValues(
-        rawData,
+        filteredRawData,
         controlChartType === "spc" ? spcInputSettings : funnelInputSettings,
-        aggregations
+        getChartAggregations(controlChartType as ChartFamily),
+        useFormattedDates
       ).dataViews,
       viewport: { width: 640, height: 480 },
       type: 2, //,
@@ -731,39 +1596,7 @@ async function createPlot() {
     var currVisual = controlChartType === "spc" ? spcVisual : funnelVisual;
 
     currVisual.update(updateArgs as any);
-    currVisual.svg.selectAll(".chart-title").remove();
-    currVisual.svg
-      .append("rect")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .attr("fill", "white")
-      .lower();
-
-    const titleTextCreate = (
-      document.getElementById("setting-chart-title") as HTMLInputElement
-    )?.value?.trim();
-    const titleSizeRaw =
-      (document.getElementById("setting-title-size") as HTMLInputElement)?.value || "16";
-    const titleSize = Math.min(48, Math.max(10, parseInt(titleSizeRaw, 10) || 16));
-    const titleColor =
-      (document.getElementById("setting-title-color") as HTMLInputElement)?.value || "#111111";
-
-    if (titleTextCreate) {
-      const plotProps: any = currVisual?.plotProperties || {};
-      const topPad = plotProps.yAxis?.end_padding ?? 0;
-      const descender = 0.2 * titleSize; // rough descender height
-      const gap = 2; // small gap above plot area
-      const computedY = topPad > 0 ? topPad - descender - gap : titleSize + 4;
-      const titleY = Math.max(titleSize + 2, computedY);
-      currVisual.svg
-        .append("text")
-        .attr("class", "chart-title")
-        .attr("x", plotProps.xAxis?.start_padding || 20)
-        .attr("y", titleY)
-        .attr("font-size", titleSize)
-        .attr("fill", titleColor)
-        .text(titleTextCreate);
-    }
+  drawChartFrameAndHeader(currVisual, filteredRawData, controlChartType);
 
     var image = currentWorksheet.shapes.addImage(
       btoa((currVisual.svg.node() as SVGSVGElement).outerHTML)
@@ -817,9 +1650,7 @@ async function previewPlot() {
 
     const controlChartType = (document.getElementById("controlchart-selector") as HTMLInputElement)
       .value;
-    if (controlChartType === "spc") {
-      updateSpcInputSettingsFromUi();
-    }
+    updateCurrentChartInputSettingsFromUi(controlChartType as ChartFamily);
 
     const denomRequired = isDenominatorRequired();
     if (denomRequired && !selectedDenominatorColumn) {
@@ -842,11 +1673,15 @@ async function previewPlot() {
       : null;
 
     await context.sync();
-    const rawData = categoryColumn.values.flat().map((cat, i) => {
+
+    const rawData: RawDataRow[] = categoryColumn.values.flat().map((cat, i) => {
       const row: any = {
         categories: controlChartType === "spc" ? fromExcelDate(cat) : cat,
         numerators: numeratorsColumn.values.flat()[i],
       };
+      if (controlChartType === "funnel" && funnelInputSettings.labels.show_labels) {
+        row.labels = cat == null ? "" : String(cat);
+      }
       if (denominatorsColumn) {
         row.denominators = denominatorsColumn.values.flat()[i];
       }
@@ -855,6 +1690,11 @@ async function previewPlot() {
       }
       return row;
     });
+    const filteredRawData =
+      controlChartType === "spc" ? applySpcDateRangeFilter(rawData) : rawData;
+    const useFormattedDates =
+      controlChartType === "spc" && rawDataSupportsDateFormatting(filteredRawData);
+    updateHeaderCanvasPadding(controlChartType, useFormattedDates);
 
     const previewHost = document.getElementById("preview-container") as HTMLElement;
     const containerRect = previewHost.getBoundingClientRect();
@@ -864,9 +1704,10 @@ async function previewPlot() {
 
     const updateArgs = {
       dataViews: makeUpdateValues(
-        rawData,
+        filteredRawData,
         controlChartType === "spc" ? spcInputSettings : funnelInputSettings,
-        aggregations
+        getChartAggregations(controlChartType as ChartFamily),
+        useFormattedDates
       ).dataViews,
       viewport: { width, height },
       type: 2,
@@ -881,40 +1722,7 @@ async function previewPlot() {
     currVisual.update(updateArgs);
     // Remove any mouse handlers that power the tooltip on the root svg (defense in depth)
     (currVisual.svg as any).on("mousemove", null).on("mouseleave", null);
-    // Ensure a white background for clarity in dark themes
-    currVisual.svg.selectAll(".chart-title").remove();
-    currVisual.svg
-      .append("rect")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .attr("fill", "white")
-      .lower();
-
-    const titleTextPreview = (
-      document.getElementById("setting-chart-title") as HTMLInputElement
-    )?.value?.trim();
-    const titleSizeRawPrev =
-      (document.getElementById("setting-title-size") as HTMLInputElement)?.value || "16";
-    const titleSizePrev = Math.min(48, Math.max(10, parseInt(titleSizeRawPrev, 10) || 16));
-    const titleColorPrev =
-      (document.getElementById("setting-title-color") as HTMLInputElement)?.value || "#111111";
-
-    if (titleTextPreview) {
-      const plotProps: any = currVisual?.plotProperties || {};
-      const topPad = plotProps.yAxis?.end_padding ?? 0;
-      const descenderPrev = 0.2 * titleSizePrev;
-      const gapPrev = 2;
-      const computedYPrev = topPad > 0 ? topPad - descenderPrev - gapPrev : titleSizePrev + 4;
-      const titleYPrev = Math.max(titleSizePrev + 2, computedYPrev);
-      currVisual.svg
-        .append("text")
-        .attr("class", "chart-title")
-        .attr("x", plotProps.xAxis?.start_padding || 20)
-        .attr("y", titleYPrev)
-        .attr("font-size", titleSizePrev)
-        .attr("fill", titleColorPrev)
-        .text(titleTextPreview);
-    }
+    drawChartFrameAndHeader(currVisual, filteredRawData, controlChartType);
   });
 }
 

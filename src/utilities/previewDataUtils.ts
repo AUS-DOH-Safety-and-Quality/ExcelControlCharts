@@ -8,10 +8,13 @@ type IColorPalette = powerbi.extensibility.IColorPalette;
 type ModalDialogResult = powerbi.extensibility.visual.ModalDialogResult;
 type VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 type DataViewCategoryColumn = powerbi.DataViewCategoryColumn;
+type DataViewScopeIdentity = powerbi.DataViewScopeIdentity;
 type DataViewValueColumns = powerbi.DataViewValueColumns;
 
 import { type settingsValueType as spcDefaultSettingsType } from "../PowerBI-SPC/src/settings";
 import { type settingsValueType as funnelDefaultSettingsType } from "../PowerBI-Funnels/src/settings";
+
+type AggregatableValue = number | string | null | undefined;
 
 function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
   return {
@@ -55,12 +58,10 @@ function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
         foregroundNeutralTertiaryAlt: {} as IColorInfo,
         foregroundSelected: { value: "black" },
         foregroundButton: {} as IColorInfo,
-        /* background variants*/
         background: { value: "white" },
         backgroundLight: {} as IColorInfo,
         backgroundNeutral: {} as IColorInfo,
         backgroundDark: {} as IColorInfo,
-        /* specific purpose colors*/
         hyperlink: { value: "blue" },
         visitedHyperlink: {} as IColorInfo,
         mapPushpin: {} as IColorInfo,
@@ -104,69 +105,98 @@ function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
   };
 }
 
-function aggregateColumn(column: number[], aggregation: string): number {
+function aggregateColumn(
+  column: AggregatableValue[],
+  aggregation: string
+): powerbi.PrimitiveValue {
+  if (aggregation === "first") {
+    return (column[0] ?? null) as powerbi.PrimitiveValue;
+  }
+  if (aggregation === "last") {
+    return (column[column.length - 1] ?? null) as powerbi.PrimitiveValue;
+  }
+
+  const numericColumn = column.filter((value): value is number => typeof value === "number");
+  if (numericColumn.length === 0) {
+    return null;
+  }
+
   if (aggregation === "sum") {
-    return column.reduce((acc: number, val: number) => acc + val, 0);
-  } else if (aggregation === "mean") {
-    return column.reduce((acc: number, val: number) => acc + val, 0) / column.length;
-  } else if (aggregation === "sd") {
-    const mean: number = column.reduce((acc: number, val: number) => acc + val, 0) / column.length;
+    return numericColumn.reduce((acc: number, val: number) => acc + val, 0);
+  }
+  if (aggregation === "mean") {
+    return numericColumn.reduce((acc: number, val: number) => acc + val, 0) / numericColumn.length;
+  }
+  if (aggregation === "sd") {
+    const mean: number =
+      numericColumn.reduce((acc: number, val: number) => acc + val, 0) / numericColumn.length;
     return Math.sqrt(
-      column.reduce((acc: number, val: number) => acc + Math.pow(val - mean, 2), 0) /
-        (column.length - 1)
+      numericColumn.reduce((acc: number, val: number) => acc + Math.pow(val - mean, 2), 0) /
+        (numericColumn.length - 1)
     );
-  } else if (aggregation === "count") {
+  }
+  if (aggregation === "count") {
     return column.length;
-  } else if (aggregation === "min") {
-    return Math.min(...column);
-  } else if (aggregation === "max") {
-    return Math.max(...column);
-  } else if (aggregation === "median") {
-    const sorted = [...column].sort((a: number, b: number) => a - b);
+  }
+  if (aggregation === "min") {
+    return Math.min(...numericColumn);
+  }
+  if (aggregation === "max") {
+    return Math.max(...numericColumn);
+  }
+  if (aggregation === "median") {
+    const sorted = [...numericColumn].sort((a: number, b: number) => a - b);
     const mid = Math.floor(sorted.length / 2);
     return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-  } else if (aggregation === "first") {
-    return column[0];
-  } else if (aggregation === "last") {
-    return column[column.length - 1];
-  } else {
-    throw new Error(`Unsupported aggregation: ${aggregation}`);
   }
+
+  throw new Error(`Unsupported aggregation: ${aggregation}`);
 }
 
 type rawDataType = Array<{
-  categories: string | Date;
+  categories: string | Date | null;
   numerators: number;
   denominators?: number | undefined;
   xbar_sds?: number | undefined;
+  labels?: string | undefined;
+  [key: string]: string | number | Date | null | undefined;
 }>;
-
-// Custom groupBy implementation to replace Object.groupBy
-function groupBy(array: any[], keyFn: (item: any) => any): { [key: string]: any[] } {
-  return array.reduce((result, item) => {
-    const key = keyFn(item);
-    if (!result[key]) result[key] = [];
-    result[key].push(item);
-    return result;
-  }, {});
-}
 
 function makeUpdateValues(
   rawData: rawDataType,
   inputSettings: spcDefaultSettingsType | funnelDefaultSettingsType,
-  aggregations: Record<string, string>
+  aggregations: Record<string, string>,
+  categoryIsTemporal = false
 ): VisualUpdateOptions {
-  const dataGrouped = groupBy(rawData, (d) => d.categories);
-  Object.freeze(dataGrouped);
+  const dataGrouped: Array<{ category: string | Date | null; rows: rawDataType }> = [];
+  const groupIndexes = new Map<string, number>();
+
+  rawData.forEach((row) => {
+    const categoryKey =
+      row.categories instanceof Date && Number.isFinite(row.categories.getTime())
+        ? `date:${row.categories.getTime()}`
+        : String(row.categories ?? "");
+    const existingIndex = groupIndexes.get(categoryKey);
+
+    if (existingIndex === undefined) {
+      groupIndexes.set(categoryKey, dataGrouped.length);
+      dataGrouped.push({ category: row.categories, rows: [row] });
+    } else {
+      dataGrouped[existingIndex].rows.push(row);
+    }
+  });
 
   const categories: DataViewCategoryColumn = {
     source: {
       displayName: "categories",
       roles: { key: true },
-      type: { temporal: {} as powerbi.TemporalTypeDescriptor },
+      type: categoryIsTemporal
+        ? { temporal: {} as powerbi.TemporalTypeDescriptor }
+        : { text: true },
     },
     values: [],
     objects: [],
+    identity: [],
   };
 
   const valueNames: string[] = Object.keys(rawData[0]).filter((k) => !["categories"].includes(k));
@@ -176,14 +206,15 @@ function makeUpdateValues(
     values: new Array<powerbi.PrimitiveValue>(),
   }));
 
-  for (var category in dataGrouped) {
-    categories.values.push(category);
+  for (const group of dataGrouped) {
+    categories.values.push(group.category);
     categories.objects!.push(inputSettings as powerbi.DataViewObjects);
+    categories.identity!.push({} as DataViewScopeIdentity);
 
     for (var i = 0; i < valueNames.length; i++) {
       var name = valueNames[i];
       var aggregatedValue = aggregateColumn(
-        dataGrouped[category].map((dataRow) => dataRow[name]),
+        group.rows.map((dataRow) => dataRow[name] as AggregatableValue),
         aggregations[name]
       );
       values[i].values.push(aggregatedValue);
@@ -203,7 +234,7 @@ function makeUpdateValues(
       },
     ],
     viewport: {} as powerbi.IViewport,
-    type: 2, // Update type == 'data'
+    type: 2,
   };
 }
 

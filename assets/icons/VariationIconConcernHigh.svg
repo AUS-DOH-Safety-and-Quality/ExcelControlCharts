@@ -1,0 +1,10 @@
+﻿<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+  <circle cx='50' cy='50' r='46' fill='none' stroke='#E46C0A' stroke-width='6' />
+  <text x='25' y='40' font-family='Arial, sans-serif' font-size='35' font-weight='bold' fill='#E46C0A' text-anchor='middle'>H</text>
+    <polyline points='30,60 45,55 60,45 75,30' stroke='#A6A6A6' stroke-width='4' fill='none' />
+  <circle cx='30' cy='60' r='4' fill='#A6A6A6' />
+  <circle cx='45' cy='55' r='4' fill='#A6A6A6' />
+  <circle cx='60' cy='45' r='4' fill='#E46C0A' />
+  <circle cx='75' cy='30' r='4' fill='#E46C0A' />
+  <polygon points='70,22 83,22 83,35' fill='#E46C0A' />
+</svg>
