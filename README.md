@@ -4,31 +4,36 @@ An Excel plugin for SPC charts and Funnel plots
 
 ## Installing the Add-in
 
-The add-in is hosted on GitHub Pages, so installing it only requires sideloading the published manifest into Excel. The install scripts are published alongside the manifest and can be run in one line — no checkout, no developer tooling, and no admin rights.
+Installing the add-in requires downloading the add-in's metadata and registering it with Excel. We provide simple scripts to perform this registration for Excel Desktop, no admin rights needed.
 
-You can see the full source under the [install](install) folder.
+The commands below will download the script and then execute it, you can also download the scripts from the [install](install) folder and run them yourself.
 
-Note that Excel needs network access to load the add-in.
 
-**Windows** (PowerShell):
+### Windows (PowerShell):
 
-```powershell
+```pwsh
 irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.ps1 | iex
 ```
 
-**macOS** (Terminal):
+###  macOS (Terminal):
 
-```bash
+```sh
 curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.sh | sh
 ```
 
 Then restart Excel and choose the add-in from the Home tab.
 
-To remove it, run the matching uninstall script:
+## Uninstalling the Add-In
+
+To remove, run the matching uninstall script:
+
+### Windows (PowerShell):
 
 ```powershell
 irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.ps1 | iex
 ```
+
+####  macOS (Terminal):
 
 ```bash
 curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.sh | sh
