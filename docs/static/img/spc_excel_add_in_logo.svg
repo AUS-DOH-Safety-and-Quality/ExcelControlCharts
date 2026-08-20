@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300" role="img" aria-labelledby="title desc">
+  <title id="title">SPC Excel Add-In logo</title>
+  <desc id="desc">Vector recreation of the uploaded SPC Excel Add-In logo.</desc>
+  <rect width="300" height="300" fill="#fdfefd"/>
+
+  <!-- Spreadsheet / chart icon -->
+  <path d="M20 156 V95 C20 87.5 25.8 81.5 33.5 81.5 H123.3 C131.2 81.5 137.2 87.5 137.2 95.2 V151.5" fill="none" stroke="#0f9834" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M137.2 157.2 V193.5 C137.2 201.3 131.2 207.3 123.4 207.3 H32.2" fill="none" stroke="#0f9834" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Chart guide lines -->
+  <line x1="26" y1="101.5" x2="132" y2="101.5" stroke="#0f9834" stroke-width="1.8"/>
+  <line x1="26" y1="122.7" x2="132" y2="122.7" stroke="#065392" stroke-width="1.8"/>
+  <line x1="26" y1="143.2" x2="132" y2="143.2" stroke="#0f9834" stroke-width="1.7" stroke-dasharray="5 4"/>
+
+  <!-- SPC line -->
+  <polyline points="29.2,142.2 43.2,131.5 58.9,115.8 80.7,135.0 95.2,122.1 109.8,103.9 128.0,116.1" fill="none" stroke="#065392" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#065392">
+    <circle cx="29.2" cy="142.2" r="3.0"/>
+    <circle cx="43.2" cy="131.5" r="3.0"/>
+    <circle cx="58.9" cy="115.8" r="3.4"/>
+    <circle cx="80.7" cy="135.0" r="3.1"/>
+    <circle cx="95.2" cy="122.1" r="3.1"/>
+    <circle cx="109.8" cy="103.9" r="3.1"/>
+    <circle cx="128.0" cy="116.1" r="3.6"/>
+  </g>
+
+  <!-- Spreadsheet cells -->
+  <defs>
+    <clipPath id="sheetClip"><rect x="18.8" y="160.2" width="118.4" height="44.6" rx="10" ry="10"/></clipPath>
+  </defs>
+  <g clip-path="url(#sheetClip)">
+    <rect x="18.8" y="160.2" width="118.4" height="44.6" fill="#b0d9b4"/>
+    <rect x="18.8" y="160.2" width="29.0" height="15.4" fill="#29a34b"/>
+    <!-- white grid gaps -->
+    <rect x="46.7" y="159.8" width="3.2" height="45.5" fill="#fdfefd"/>
+    <rect x="76.0" y="159.8" width="3.2" height="45.5" fill="#fdfefd"/>
+    <rect x="106.6" y="159.8" width="3.2" height="45.5" fill="#fdfefd"/>
+    <rect x="18.2" y="174.6" width="120" height="3.2" fill="#fdfefd"/>
+    <rect x="18.2" y="188.9" width="120" height="3.2" fill="#fdfefd"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="150.5" y="150.5" font-family="Arial, Helvetica, sans-serif" font-size="80" font-weight="700" fill="#065392" textLength="130" lengthAdjust="spacingAndGlyphs">SPC</text>
+  <line x1="151.5" y1="161.9" x2="281.5" y2="161.9" stroke="#0f9834" stroke-width="2.4"/>
+  <text x="151.0" y="192.0" font-family="Arial, Helvetica, sans-serif" font-size="23.5" font-weight="400" fill="#575757" textLength="131" lengthAdjust="spacingAndGlyphs">Excel Add-In</text>
+</svg>
