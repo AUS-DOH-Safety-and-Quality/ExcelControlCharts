@@ -21,5 +21,9 @@ declare global {
     __excelHost?: WorkbookHost;
     /** Installed by the embedded taskpane so the page can redraw the chart. */
     __refreshChart?: () => void;
+    /** Installed by taskpane.ts: whether enough fields are selected to render a preview. */
+    __isChartPreviewReady?: () => boolean;
+    /** Installed by taskpane.ts: re-renders the preview into its (possibly re-parented) container. */
+    __renderChartPreview?: () => void;
   }
 }

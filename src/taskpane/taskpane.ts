@@ -1019,7 +1019,6 @@ Office.onReady((info) => {
     document.getElementById("app-body")!.style.display = "flex";
 
     document.getElementById("create-plot")!.onclick = () => tryCatch(createPlot);
-    document.getElementById("preview-plot")!.onclick = () => tryCatch(previewPlot);
 
     // Move our rendering containers inside the preview area
     const previewHost = document.getElementById("preview-container");
@@ -1086,9 +1085,19 @@ Office.onReady((info) => {
         queuePreviewRefresh();
       });
     };
-    numSel.onchange = () => updateActionButtonsEnabledState();
-    denSel.onchange = () => updateActionButtonsEnabledState();
-    sdSel && (sdSel.onchange = () => updateActionButtonsEnabledState());
+    numSel.onchange = () => {
+      updateActionButtonsEnabledState();
+      queuePreviewRefresh();
+    };
+    denSel.onchange = () => {
+      updateActionButtonsEnabledState();
+      queuePreviewRefresh();
+    };
+    sdSel &&
+      (sdSel.onchange = () => {
+        updateActionButtonsEnabledState();
+        queuePreviewRefresh();
+      });
 
     // Tabs: Data/Inputs vs Settings
     const tabData = document.getElementById("tab-data") as HTMLButtonElement;
@@ -1240,9 +1249,7 @@ Office.onReady((info) => {
         clearTimeout(titleDebounce);
       }
       titleDebounce = window.setTimeout(() => {
-        // Only update if preview is active (buttons enabled and maybe already rendered)
-        const previewEnabled = !document.getElementById("preview-plot")?.hasAttribute("disabled");
-        if (previewEnabled) {
+        if (hasRequiredChartFields()) {
           tryCatch(previewPlot);
         }
       }, 250);
@@ -1464,7 +1471,7 @@ async function updateColumnSelectors() {
   });
 }
 
-function updateActionButtonsEnabledState() {
+function hasRequiredChartFields(): boolean {
   const chartFamily = (document.getElementById("controlchart-selector") as HTMLInputElement | null)
     ?.value;
   const isSpc = chartFamily === "spc";
@@ -1481,18 +1488,18 @@ function updateActionButtonsEnabledState() {
   if (isXbar) {
     requiredIds.push("sd-selector");
   }
-  const allSelected = requiredIds.every((id) => {
+  return requiredIds.every((id) => {
     const el = document.getElementById(id) as HTMLSelectElement;
     return el && typeof el.value === "string" && el.value.length > 0;
   });
+}
+
+function updateActionButtonsEnabledState() {
   const createBtn = document.getElementById("create-plot");
-  const previewBtn = document.getElementById("preview-plot");
-  if (allSelected) {
+  if (hasRequiredChartFields()) {
     createBtn?.removeAttribute("disabled");
-    previewBtn?.removeAttribute("disabled");
   } else {
     createBtn?.setAttribute("disabled", "true");
-    previewBtn?.setAttribute("disabled", "true");
   }
 }
 
@@ -1745,3 +1752,7 @@ async function tryCatch(callback: () => Promise<void>) {
     console.error(error);
   }
 }
+
+// Lets embed.ts trigger a render and check readiness for cases it can't see itself.
+window.__isChartPreviewReady = hasRequiredChartFields;
+window.__renderChartPreview = () => tryCatch(previewPlot);
