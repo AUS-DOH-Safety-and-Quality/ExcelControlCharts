@@ -1,0 +1,282 @@
+/* Design tokens mirror taskpane.css so the page and the embedded panel match. */
+:root {
+    --font-stack: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --surface-muted: #eef1f8;
+    --text: #0f172a;
+    --muted: #465169;
+    --border: #d9dfeb;
+    --primary: #2563eb;
+    --primary-foreground: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0b0f17;
+        --surface: #121826;
+        --surface-muted: #182031;
+        --text: #e5e7eb;
+        --muted: #a1accb;
+        --border: #1f2937;
+        --primary: #3b82f6;
+        --primary-foreground: #0b0f17;
+        --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+.page {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    font-family: var(--font-stack);
+    color: var(--text);
+    background: var(--bg);
+}
+
+.page-header {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+}
+.page-logo { border-radius: var(--radius-sm); }
+.page-title-wrap { flex: 1; min-width: 0; }
+.page-title { margin: 0; font-size: 18px; font-weight: 650; }
+.page-subtitle { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.page-link {
+    font-size: 13px;
+    color: var(--primary);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.page-link:hover { text-decoration: underline; }
+
+.page-main {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+}
+
+/* Three columns: spreadsheet, chart, and the collapsible options panel. */
+.workbook {
+    flex: 1 1 340px;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chart-panel {
+    flex: 1.5 1 420px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.chart-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+}
+.chart-header__title { font-size: 13px; font-weight: 600; }
+.chart-header__actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
+.chart-host {
+    position: relative;
+    flex: 1;
+    min-height: 320px;
+    padding: 8px;
+    background: #ffffff;
+}
+.chart-host svg { max-width: 100%; }
+
+.chart-empty {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    text-align: center;
+    font-size: 13px;
+    color: #64748b;
+}
+.chart-host[data-rendered] .chart-empty { display: none; }
+
+.toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.toolbar__spacer { flex: 1; }
+
+.btn {
+    font: inherit;
+    font-size: 13px;
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+}
+.btn:hover { border-color: var(--primary); }
+.btn:active { transform: translateY(1px); }
+
+.sheet-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.tab {
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background: var(--surface-muted);
+    color: var(--muted);
+    cursor: pointer;
+}
+.tab--active {
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+}
+.tab--add { font-weight: 700; padding-inline: 10px; }
+
+.status {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.grid-container {
+    flex: 1;
+    min-height: 240px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.grid {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+}
+.grid th, .grid td {
+    padding: 0;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+.grid__label, .grid__gutter {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface-muted);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-align: center;
+    padding: 4px 6px;
+    min-width: 34px;
+}
+.grid__gutter {
+    position: sticky;
+    left: 0;
+    top: auto;
+    z-index: 1;
+}
+.grid__corner { z-index: 3; top: 0; }
+.grid__header {
+    position: sticky;
+    top: 22px;
+    z-index: 2;
+    background: var(--surface-muted);
+}
+
+.grid__cell {
+    font: inherit;
+    font-size: 13px;
+    width: 140px;
+    padding: 5px 8px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+}
+.grid__cell--header { font-weight: 600; }
+.grid__cell:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+    background: var(--surface);
+}
+
+.hint {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.taskpane-panel {
+    flex: 0 0 400px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: var(--shadow-md);
+    transition: flex-basis 0.2s ease, border-width 0.2s ease;
+}
+
+/* Collapsed to nothing rather than display:none, so the frame keeps its layout
+   (and the taskpane its state) and re-opens instantly. */
+.taskpane-panel--collapsed {
+    flex-basis: 0;
+    border-width: 0;
+}
+.taskpane-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+@media (max-width: 1200px) {
+    .page-main { flex-wrap: wrap; }
+    .workbook, .chart-panel { flex-basis: 100%; }
+    .taskpane-panel { flex: 1 1 100%; height: 640px; }
+    .taskpane-panel--collapsed { flex-basis: 0; height: 0; }
+    .grid-container { min-height: 280px; }
+}

@@ -39,6 +39,19 @@ irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.ps
 curl -fsSL https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/uninstall.sh | sh
 ```
 
+## Using It Without Excel
+
+The same charting panel is also published as a standalone web page, for when Excel isn't available:
+
+**https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/**
+
+Type into cells, paste from Excel, or drop a CSV to load data — a sample dataset is included. Pick a
+category and numerator column and the chart draws itself, updating live as you edit. Download it as
+SVG or PNG. Everything runs in the browser — no data leaves your machine, and your workbook is saved
+locally between visits.
+
+The page also works offline: save `index.html` and open it directly, no server needed.
+
 ## Initialising the Development Environment
 
 The repo uses submodules to include the [`PowerBI-SPC`](https://github.com/AUS-DOH-Safety-and-Quality/PowerBI-SPC) and [`PowerBI-Funnels`](https://github.com/AUS-DOH-Safety-and-Quality/PowerBI-Funnels) sources, so be sure to clone those when setting a local copy of the repo:
@@ -65,6 +78,9 @@ bun run start
 ```
 
 This will compile the plugin and start a local server that you can use to test the plugin in Excel. A blank spreadsheet will open with the plugin loaded, but it will also be available in any existing spreadsheets you have open.
+
+The same server also hosts the Excel-free web page at its root (`https://localhost:3100/`), so both
+front ends rebuild together as you edit.
 
 ### From Visual Studio Code
 

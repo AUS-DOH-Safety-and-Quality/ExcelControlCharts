@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Excel Control Charts — Web</title>
+    <meta name="description" content="Build SPC and funnel charts in the browser, without Excel." />
+    <link rel="icon" href="../../assets/spc_excel_add_in_logo_64_64.png" />
+    <link href="web.css" rel="stylesheet" type="text/css" />
+    <script type="module" src="./app.ts"></script>
+</head>
+
+<body class="page">
+
+<header class="page-header">
+    <img class="page-logo" width="48" height="48" src="../../assets/spc_excel_add_in_logo_300_300.png" alt="" />
+    <div class="page-title-wrap">
+        <h1 class="page-title">Excel Control Charts</h1>
+        <p class="page-subtitle">SPC and funnel charts in the browser — no Excel required</p>
+    </div>
+    <a class="page-link" href="https://github.com/AUS-DOH-Safety-and-Quality/ExcelControlCharts#installing-the-add-in">
+        Install the Excel add-in
+    </a>
+</header>
+
+<main class="page-main">
+
+    <section class="workbook" aria-label="Spreadsheet">
+        <div class="toolbar">
+            <button type="button" class="btn" id="open-csv-button">Open CSV</button>
+            <button type="button" class="btn" id="load-sample">Sample data</button>
+            <span class="toolbar__spacer"></span>
+            <button type="button" class="btn" id="add-rows">+ 20 rows</button>
+            <button type="button" class="btn" id="add-column">+ Column</button>
+            <button type="button" class="btn" id="delete-sheet">Delete sheet</button>
+            <input type="file" id="open-csv" accept=".csv,.tsv,.txt,text/csv,text/plain" multiple hidden />
+        </div>
+
+        <div class="sheet-tabs" id="sheet-tabs" role="tablist" aria-label="Sheets"></div>
+
+        <p class="status" id="status-line"></p>
+
+        <div class="grid-container" id="grid-container">
+            <!-- The editable grid is rendered here -->
+        </div>
+
+        <p class="hint">
+            Type in the cells, paste a block copied from Excel, or drop a CSV file here. Row 1 holds the
+            column names, and each sheet is offered to the chart panel as a single table.
+        </p>
+    </section>
+
+    <section class="chart-panel" aria-label="Chart">
+        <div class="chart-header">
+            <span class="chart-header__title">Chart</span>
+            <div class="chart-header__actions">
+                <button type="button" class="btn" id="download-svg">SVG</button>
+                <button type="button" class="btn" id="download-png">PNG</button>
+                <button type="button" class="btn" id="toggle-panel" aria-expanded="true" aria-controls="taskpane-panel">
+                    Hide panel
+                </button>
+            </div>
+        </div>
+        <div class="chart-host" id="chart-host">
+            <p class="chart-empty">
+                Choose a category and numerator column in the panel and the chart appears here.
+            </p>
+        </div>
+    </section>
+
+    <aside class="taskpane-panel" id="taskpane-panel" aria-label="Chart options">
+        <iframe id="taskpane-frame" class="taskpane-frame" title="Excel Control Charts panel"></iframe>
+    </aside>
+
+</main>
+
+</body>
+
+</html>
