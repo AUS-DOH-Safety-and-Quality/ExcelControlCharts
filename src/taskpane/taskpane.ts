@@ -1210,12 +1210,39 @@ Office.onReady((info) => {
       });
     }
 
+    let titleDebounce: number | undefined;
+
+    function clearPreviewOnChartTypeSwitch() {
+      if (titleDebounce) {
+        clearTimeout(titleDebounce);
+        titleDebounce = undefined;
+      }
+
+      spcDiv.setAttribute("hidden", "true");
+      funnelDiv.setAttribute("hidden", "true");
+
+      try {
+        const chartHost = window.parent.document.getElementById("chart-host") as HTMLElement | null;
+        if (chartHost) {
+          delete chartHost.dataset.rendered;
+        }
+      } catch {
+        // The browser host only exists in the embedded web preview.
+      }
+    }
+
     function setChartType(value: ChartFamily) {
       const currentChartFamily = getSelectedChartFamily();
+      const hasRenderedChartTypeSettings = Boolean(document.getElementById("spc-chart-type"));
+      if (currentChartFamily === value && hasRenderedChartTypeSettings) {
+        return;
+      }
+
       if (document.getElementById("spc-chart-type")) {
         updateCurrentChartInputSettingsFromUi(currentChartFamily);
       }
 
+      clearPreviewOnChartTypeSwitch();
       chartTypeHidden.value = value;
       const isSpc = value === "spc";
       toggleSpc.classList.toggle("is-active", isSpc);
@@ -1236,14 +1263,12 @@ Office.onReady((info) => {
       updateSdSelectorVisibility();
       updateDenominatorSelectorVisibility();
       updateActionButtonsEnabledState();
-      queuePreviewRefresh();
     }
     toggleSpc?.addEventListener("click", () => setChartType("spc"));
     toggleFunnel?.addEventListener("click", () => setChartType("funnel"));
     themeToggle?.addEventListener("click", toggleTheme);
 
     // Live preview update on title input (debounced)
-    let titleDebounce: number | undefined;
     function queuePreviewRefresh() {
       if (titleDebounce) {
         clearTimeout(titleDebounce);
