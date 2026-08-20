@@ -29,10 +29,13 @@ const gridContainer = element("grid-container");
 const sheetTabs = element("sheet-tabs");
 const statusLine = element("status-line");
 const chartHost = element("chart-host");
+const workbookColumn = element("workbook-column");
 const taskpanePanel = element("taskpane-panel");
 const togglePanel = element<HTMLButtonElement>("toggle-panel");
 const csvInput = element<HTMLInputElement>("open-csv");
 const taskpaneFrame = element<HTMLIFrameElement>("taskpane-frame");
+const resizeWorkbookHandle = element("resize-workbook");
+const resizePanelHandle = element("resize-panel");
 
 const grid = new Grid(gridContainer, { onChange: persist });
 
@@ -248,12 +251,77 @@ async function downloadPng(): Promise<void> {
   }
 }
 
+interface ResizeOptions {
+  min: number;
+  max: number;
+  invert?: boolean;
+  storageKey: string;
+}
+
+// Drags `target`'s flex-basis between min/max, persisting the chosen width.
+function makeResizable(handle: HTMLElement, target: HTMLElement, options: ResizeOptions): void {
+  const clamp = (value: number) => Math.min(options.max, Math.max(options.min, value));
+
+  const stored = Number(localStorage.getItem(options.storageKey));
+  // Tracks the requested width, not the rendered one: flex-shrink can render the
+  // column smaller than what was asked for, and re-basing each drag on the
+  // rendered value would make repeated short drags converge short of the real limit.
+  let requestedWidth = clamp(stored || target.getBoundingClientRect().width);
+  if (stored) {
+    target.style.flexBasis = `${requestedWidth}px`;
+  }
+
+  let startX = 0;
+  let startWidth = 0;
+
+  const onPointerMove = (event: PointerEvent) => {
+    const delta = (event.clientX - startX) * (options.invert ? -1 : 1);
+    requestedWidth = clamp(startWidth + delta);
+    target.style.flexBasis = `${requestedWidth}px`;
+  };
+
+  const onPointerUp = (event: PointerEvent) => {
+    handle.releasePointerCapture(event.pointerId);
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", onPointerUp);
+    document.body.classList.remove("resizing");
+    target.style.transition = "";
+    localStorage.setItem(options.storageKey, String(requestedWidth));
+  };
+
+  handle.addEventListener("pointerdown", (event) => {
+    startX = event.clientX;
+    startWidth = requestedWidth;
+    handle.setPointerCapture(event.pointerId);
+    document.body.classList.add("resizing");
+    // Suppress the collapse-toggle's flex-basis transition so the drag tracks the
+    // cursor immediately instead of easing toward each move's target.
+    target.style.transition = "none";
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
+  });
+}
+
+makeResizable(resizeWorkbookHandle, workbookColumn, {
+  min: 260,
+  max: 640,
+  storageKey: "excel-control-charts:workbook-width",
+});
+makeResizable(resizePanelHandle, taskpanePanel, {
+  min: 300,
+  max: 640,
+  invert: true,
+  storageKey: "excel-control-charts:panel-width",
+});
+
 const panelStorageKey = "excel-control-charts:panel-collapsed";
 
 function setPanelCollapsed(collapsed: boolean): void {
   taskpanePanel.classList.toggle("taskpane-panel--collapsed", collapsed);
+  resizePanelHandle.hidden = collapsed;
   togglePanel.setAttribute("aria-expanded", String(!collapsed));
-  togglePanel.textContent = collapsed ? "Show panel" : "Hide panel";
+  togglePanel.title = collapsed ? "Show panel" : "Hide panel";
+  togglePanel.setAttribute("aria-label", togglePanel.title);
   try {
     localStorage.setItem(panelStorageKey, collapsed ? "1" : "0");
   } catch {

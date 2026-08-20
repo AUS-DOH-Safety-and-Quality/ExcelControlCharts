@@ -26,22 +26,23 @@ async function getCertificate(): Promise<{ key: Buffer; cert: Buffer }> {
 await runBuild("development");
 watchAndRebuild("development");
 
-Bun.serve({
-  hostname: "localhost",
-  port,
-  tls: await getCertificate(),
-  async fetch(request) {
-    const pathname = decodeURIComponent(new URL(request.url).pathname);
-    // The static spreadsheet page is the site root; Excel loads /taskpane.html directly.
-    const filePath = path.join(distRoot, pathname === "/" ? "index.html" : pathname);
-    const file = Bun.file(filePath);
+async function fetch(request: Request): Promise<Response> {
+  const pathname = decodeURIComponent(new URL(request.url).pathname);
+  // The static spreadsheet page is the site root; Excel loads /taskpane.html directly.
+  const filePath = path.join(distRoot, pathname === "/" ? "index.html" : pathname);
+  const file = Bun.file(filePath);
 
-    if (!filePath.startsWith(distRoot) || !(await file.exists())) {
-      return new Response("Not found", { status: 404 });
-    }
+  if (!filePath.startsWith(distRoot) || !(await file.exists())) {
+    return new Response("Not found", { status: 404 });
+  }
 
-    return new Response(file, { headers: { "Access-Control-Allow-Origin": "*" } });
-  },
-});
+  return new Response(file, { headers: { "Access-Control-Allow-Origin": "*" } });
+}
+
+const tls = await getCertificate();
+// "localhost" resolves to whichever loopback family the OS prefers; binding both
+// avoids a client on the other family hitting a bare connection refused.
+Bun.serve({ hostname: "127.0.0.1", port, tls, fetch });
+Bun.serve({ hostname: "::1", port, tls, fetch });
 
 console.log(`Dev server running at https://localhost:${port}/`);

@@ -26,7 +26,7 @@
 
 <main class="page-main">
 
-    <section class="workbook" aria-label="Spreadsheet">
+    <section class="workbook" id="workbook-column" aria-label="Spreadsheet">
         <div class="toolbar">
             <button type="button" class="btn" id="open-csv-button">Open CSV</button>
             <button type="button" class="btn" id="load-sample">Sample data</button>
@@ -51,15 +51,14 @@
         </p>
     </section>
 
+    <div class="col-resizer" id="resize-workbook" role="separator" aria-orientation="vertical"></div>
+
     <section class="chart-panel" aria-label="Chart">
         <div class="chart-header">
             <span class="chart-header__title">Chart</span>
             <div class="chart-header__actions">
                 <button type="button" class="btn" id="download-svg">SVG</button>
                 <button type="button" class="btn" id="download-png">PNG</button>
-                <button type="button" class="btn" id="toggle-panel" aria-expanded="true" aria-controls="taskpane-panel">
-                    Hide panel
-                </button>
             </div>
         </div>
         <div class="chart-host" id="chart-host">
@@ -69,7 +68,14 @@
         </div>
     </section>
 
+    <div class="col-resizer" id="resize-panel" role="separator" aria-orientation="vertical"></div>
+
     <aside class="taskpane-panel" id="taskpane-panel" aria-label="Chart options">
+        <button type="button" class="panel-toggle" id="toggle-panel" aria-expanded="true" aria-controls="taskpane-panel">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </button>
         <iframe id="taskpane-frame" class="taskpane-frame" title="Excel Control Charts panel"></iframe>
     </aside>
 

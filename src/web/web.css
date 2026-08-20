@@ -73,18 +73,43 @@ html, body { height: 100%; }
     min-height: 0;
 }
 
-/* Three columns: spreadsheet, chart, and the collapsible options panel. */
+/* Three columns: spreadsheet, chart, and the collapsible options panel. The side
+   columns are user-resizable, fixed-width; the chart column fills what's left. */
 .workbook {
-    flex: 1 1 340px;
+    flex: 0 1 340px;
     min-width: 300px;
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
+.col-resizer {
+    flex: 0 0 6px;
+    align-self: stretch;
+    position: relative;
+    cursor: col-resize;
+    touch-action: none;
+}
+.col-resizer::after {
+    content: "";
+    position: absolute;
+    inset: 0 2px;
+    border-radius: 999px;
+    background: var(--border);
+}
+.col-resizer:hover::after {
+    background: var(--primary);
+}
+
+body.resizing,
+body.resizing * {
+    cursor: col-resize;
+    user-select: none;
+}
+
 .chart-panel {
-    flex: 1.5 1 420px;
-    min-width: 320px;
+    flex: 1 1 420px;
+    min-width: 120px;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border);
@@ -96,6 +121,7 @@ html, body { height: 100%; }
 
 .chart-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
@@ -251,20 +277,45 @@ html, body { height: 100%; }
 }
 
 .taskpane-panel {
-    flex: 0 0 400px;
+    position: relative;
+    flex: 0 1 400px;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     overflow: hidden;
     background: var(--surface);
     box-shadow: var(--shadow-md);
-    transition: flex-basis 0.2s ease, border-width 0.2s ease;
+    transition: flex-basis 0.2s ease;
 }
 
-/* Collapsed to nothing rather than display:none, so the frame keeps its layout
-   (and the taskpane its state) and re-opens instantly. */
+.panel-toggle {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+}
+.panel-toggle:hover { color: var(--text); border-color: var(--primary); }
+.panel-toggle svg { transition: transform 0.2s ease; }
+
+/* Collapses to a rail rather than display:none, so the toggle stays reachable and
+   the frame keeps its state. !important beats the inline flex-basis a drag may set. */
 .taskpane-panel--collapsed {
-    flex-basis: 0;
-    border-width: 0;
+    flex-basis: 44px !important;
+}
+.taskpane-panel--collapsed .taskpane-frame {
+    display: none;
+}
+.taskpane-panel--collapsed .panel-toggle svg {
+    transform: rotate(180deg);
 }
 .taskpane-frame {
     width: 100%;
@@ -277,6 +328,7 @@ html, body { height: 100%; }
     .page-main { flex-wrap: wrap; }
     .workbook, .chart-panel { flex-basis: 100%; }
     .taskpane-panel { flex: 1 1 100%; height: 640px; }
-    .taskpane-panel--collapsed { flex-basis: 0; height: 0; }
+    .taskpane-panel--collapsed { flex-basis: 100% !important; height: 44px; }
     .grid-container { min-height: 280px; }
+    .col-resizer { display: none; }
 }
