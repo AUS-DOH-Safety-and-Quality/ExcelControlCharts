@@ -1,20 +1,13 @@
-/**
- * Page integration for the web build of the taskpane. `office-shim` supplies the
- * Excel API; this module moves the chart the taskpane draws into the hosting
- * page's own column and keeps it refreshing as the inputs change.
- *
- * Importing the shim for its side effects also guarantees it installs first.
- */
+// Moves the taskpane's chart into the page's own column and keeps it refreshing.
+// Imports office-shim for its side effects, which also guarantees it installs first.
 import { afterReady, resolveHost } from "./office-shim";
 
 /** Matches the padding `previewPlot` subtracts from its container's measured size. */
 const previewPadding = 16;
 const renderDebounceMs = 120;
 
-/**
- * taskpane.ts already re-previews on its own for the category selector, the chart
- * type toggle and every settings field. These are the inputs it leaves uncovered.
- */
+// taskpane.ts already re-previews itself for the category/type/settings controls;
+// these are the inputs it leaves uncovered.
 const uncoveredSelectors = ["numerator-selector", "denominator-selector", "sd-selector"];
 
 /** Parks the panel's own preview and action controls off-screen, still measurable. */

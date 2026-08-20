@@ -18,11 +18,7 @@ const urlDeployed = "https://aus-doh-safety-and-quality.github.io/ExcelControlCh
 const webTaskpanePath = path.join(repoRoot, "src/taskpane/taskpane-web.html");
 const officeJsTag = /<script[^>]*appsforoffice\.microsoft\.com[^>]*>\s*<\/script>/;
 
-/**
- * The static web build reuses taskpane.html verbatim apart from swapping Office.js
- * for the page integration, which installs the shim that talks to the spreadsheet
- * grid on the hosting page and moves the chart into the page's own column.
- */
+// Swaps Office.js for the page-integration shim; taskpane.html is otherwise untouched.
 async function writeWebTaskpane(): Promise<void> {
   const source = await fs.readFile(path.join(repoRoot, "src/taskpane/taskpane.html"), "utf-8");
   if (!officeJsTag.test(source)) {
@@ -48,11 +44,8 @@ const mimeTypes: Record<string, string> = {
   ".gif": "image/gif",
 };
 
-/**
- * A `</script` sequence would close the carrier element early. Inside a JS or CSS
- * string literal the escaped form is equivalent, and it cannot legally occur
- * anywhere else, so this is lossless.
- */
+// Escapes "</script" so it can't close the carrier element early; lossless since
+// that sequence can't otherwise occur inside a JS/CSS string literal.
 function escapePayload(text: string): string {
   return text.replaceAll("</script", "<\\/script");
 }
@@ -65,12 +58,15 @@ async function toDataUri(fileName: string): Promise<string> {
 
 /** Swaps every local image reference for a data URI. */
 async function inlineImages(html: string): Promise<string> {
-  const references = [...html.matchAll(/(?:src|href)="\.\/([^"]+\.(?:png|svg|jpe?g|gif))"/g)];
+  const fileNames = new Set(
+    [...html.matchAll(/(?:src|href)="\.\/([^"]+\.(?:png|svg|jpe?g|gif))"/g)].map(([, name]) => name)
+  );
+  const entries = await Promise.all(
+    [...fileNames].map(async (fileName) => [fileName, await toDataUri(fileName)] as const)
+  );
   let result = html;
-  for (const [, fileName] of references) {
-    const dataUri = await toDataUri(fileName);
-    // Replacement functions, here and below: a literal replacement string would
-    // treat `$$` and `$&` in bundled code as substitution patterns and corrupt it.
+  for (const [fileName, dataUri] of entries) {
+    // Function form avoids "$$"/"$&" in bundled code being read as replacement patterns.
     result = result.replaceAll(`./${fileName}`, () => dataUri);
   }
   return result;
@@ -84,31 +80,20 @@ function takeAsset(html: string, pattern: RegExp): { fileName: string; html: str
   return { fileName: match[1], html: html.replace(match[0], "") };
 }
 
-/**
- * Rewrites the built web app into a single self-contained index.html.
- *
- * Bun emits the stylesheet and bundle as separate files tagged `crossorigin`, and
- * both those fetches and the taskpane iframe's own document are blocked under a
- * file:// URL, where every file gets its own opaque origin. Inlining everything
- * leaves the page with no subresource requests at all, so it runs equally well
- * from GitHub Pages, a shared drive, or a USB stick.
- *
- * The taskpane keeps its own document: the frame is left on about:blank, which
- * inherits this page's origin even when that origin is opaque, so the shim can
- * still reach the host through `window.parent` while the panel's stylesheet stays
- * isolated from the page's.
- */
+function extractAssets(html: string): { html: string; styleFile: string; scriptFile: string } {
+  const style = takeAsset(html, /<link[^>]*?href="\.\/([^"]+\.css)"[^>]*>/);
+  const script = takeAsset(style.html, /<script[^>]*?src="\.\/([^"]+\.js)"[^>]*><\/script>/);
+  return { html: script.html, styleFile: style.fileName, scriptFile: script.fileName };
+}
+
+// Inlines the built JS/CSS/images into a single index.html: under file://, every
+// subresource fetch is cross-origin and gets blocked, so this removes them all.
 async function inlineWebApp(): Promise<void> {
   const indexPath = path.join(distRoot, "index.html");
   const taskpaneHtml = await fs.readFile(path.join(distRoot, "taskpane-web.html"), "utf-8");
+  const taskpane = extractAssets(taskpaneHtml);
 
-  const taskpaneStyle = takeAsset(taskpaneHtml, /<link[^>]*?href="\.\/([^"]+\.css)"[^>]*>/);
-  const taskpaneScript = takeAsset(
-    taskpaneStyle.html,
-    /<script[^>]*?src="\.\/([^"]+\.js)"[^>]*><\/script>/
-  );
-
-  const body = taskpaneScript.html.match(/<body([^>]*)>([\s\S]*)<\/body>/);
+  const body = taskpane.html.match(/<body([^>]*)>([\s\S]*)<\/body>/);
   if (!body) {
     throw new Error("Could not find the taskpane body in the built HTML");
   }
@@ -116,31 +101,32 @@ async function inlineWebApp(): Promise<void> {
     `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body${body[1]}>${body[2]}</body></html>`
   );
 
-  let index = await fs.readFile(indexPath, "utf-8");
-  const indexStyle = takeAsset(index, /<link[^>]*?href="\.\/([^"]+\.css)"[^>]*>/);
-  const indexScript = takeAsset(
-    indexStyle.html,
-    /<script[^>]*?src="\.\/([^"]+\.js)"[^>]*><\/script>/
-  );
-  index = indexScript.html;
+  const index = extractAssets(await fs.readFile(indexPath, "utf-8"));
 
   const read = (fileName: string) => fs.readFile(path.join(distRoot, fileName), "utf-8");
+  const [indexStyle, taskpaneStyle, taskpaneScript, indexScript] = await Promise.all([
+    read(index.styleFile),
+    read(taskpane.styleFile),
+    read(taskpane.scriptFile),
+    read(index.scriptFile),
+  ]);
+
   const payloads = [
     ["taskpane-markup", taskpaneMarkup],
-    ["taskpane-style", await read(taskpaneStyle.fileName)],
-    ["taskpane-script", await read(taskpaneScript.fileName)],
+    ["taskpane-style", taskpaneStyle],
+    ["taskpane-script", taskpaneScript],
   ] as const;
 
   const inlined = [
-    `<style>${await read(indexStyle.fileName)}</style>`,
+    `<style>${indexStyle}</style>`,
     ...payloads.map(
       ([id, content]) => `<script type="text/plain" id="${id}">${escapePayload(content)}</script>`
     ),
-    `<script type="module">${escapePayload(await read(indexScript.fileName))}</script>`,
+    `<script type="module">${escapePayload(indexScript)}</script>`,
   ].join("\n");
 
-  index = await inlineImages(index.replace("</head>", () => `${inlined}\n</head>`));
-  await fs.writeFile(indexPath, index);
+  const result = await inlineImages(index.html.replace("</head>", () => `${inlined}\n</head>`));
+  await fs.writeFile(indexPath, result);
 }
 
 // Read rather than import the manifest so watch mode picks up edits.

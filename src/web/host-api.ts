@@ -1,6 +1,5 @@
-// Contract between the static spreadsheet page and the Office.js shim running in
-// the embedded taskpane. Both sides are same-origin, so the shim reaches the host
-// directly through `window.parent.__excelHost` rather than posting messages.
+// Contract between the page and the taskpane's Office.js shim. Both sides are
+// same-origin, so the shim reaches the host through `window.parent.__excelHost` directly.
 
 export type CellValue = string | number | null;
 

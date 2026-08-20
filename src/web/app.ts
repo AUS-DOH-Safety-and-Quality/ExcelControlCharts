@@ -40,8 +40,18 @@ function activeSheet() {
   return getSheet(workbook, workbook.activeSheet);
 }
 
+function debounce(callback: () => void, delay: number): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return () => {
+    clearTimeout(timer);
+    timer = setTimeout(callback, delay);
+  };
+}
+
+const scheduleSave = debounce(() => saveWorkbook(workbook), 300);
+
 function persist(): void {
-  saveWorkbook(workbook);
+  scheduleSave();
   renderStatus();
   // Edits to the data should show up in the chart without any further action.
   taskpaneFrame.contentWindow?.__refreshChart?.();
@@ -296,14 +306,8 @@ function payload(id: string): string {
   return carrier.textContent;
 }
 
-/**
- * Writes the taskpane into its frame rather than pointing the frame at a URL.
- *
- * Loading a second document would be blocked under a file:// URL, where each file
- * gets its own opaque origin. A frame left on about:blank inherits this page's
- * origin instead, so the shim can still reach `window.parent.__excelHost` while
- * the panel keeps a separate document, and with it a separate stylesheet.
- */
+// Writes the taskpane into the frame instead of pointing it at a URL — a second
+// document would be cross-origin under file://; about:blank inherits this page's origin.
 function mountTaskpane(): void {
   const doc = taskpaneFrame.contentDocument;
   if (!doc) {

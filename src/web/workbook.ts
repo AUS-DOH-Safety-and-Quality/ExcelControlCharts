@@ -76,8 +76,7 @@ export function tableColumns(sheet: Sheet): string[] {
 }
 
 /** Last row (exclusive) holding data in any of the table's columns. */
-export function tableRowCount(sheet: Sheet): number {
-  const indices = tableColumnIndices(sheet);
+export function tableRowCount(sheet: Sheet, indices = tableColumnIndices(sheet)): number {
   for (let row = sheet.rows.length - 1; row >= 0; row -= 1) {
     if (indices.some((index) => (sheet.rows[row][index] ?? "").trim() !== "")) {
       return row + 1;
@@ -87,14 +86,12 @@ export function tableRowCount(sheet: Sheet): number {
 }
 
 export function hasTable(sheet: Sheet): boolean {
-  return tableColumnIndices(sheet).length > 0 && tableRowCount(sheet) > 0;
+  const indices = tableColumnIndices(sheet);
+  return indices.length > 0 && tableRowCount(sheet, indices) > 0;
 }
 
-/**
- * Cells come out of the grid as strings. Excel hands the taskpane numbers for
- * numeric cells and strings for everything else (dates included, which
- * `fromExcelDate` parses), so mirror that coercion here.
- */
+// Cells come out of the grid as strings; Excel hands the taskpane numbers for
+// numeric cells and strings otherwise (dates included), so mirror that coercion.
 export function coerceCell(raw: string): CellValue {
   const trimmed = raw.trim();
   if (trimmed === "") {

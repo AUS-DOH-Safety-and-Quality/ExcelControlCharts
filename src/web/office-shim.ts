@@ -1,11 +1,5 @@
-/**
- * Minimal stand-in for the parts of Office.js that the taskpane uses, backed by
- * the spreadsheet grid on the hosting page. It is loaded instead of the Office.js
- * CDN bundle in the web build of the taskpane, so `taskpane.ts` runs unmodified.
- *
- * Excel's batching model is reproduced faithfully enough for this consumer:
- * `load()` queues work, and the queued work runs on `context.sync()`.
- */
+// Stand-in for the Office.js calls taskpane.ts makes, backed by the page's grid.
+// load() queues work; context.sync() runs it — enough of Excel's batching to reuse taskpane.ts unmodified.
 import type { CellValue, WorkbookHost } from "./host-api";
 
 const noHostMessage =
@@ -20,18 +14,11 @@ export function resolveHost(): WorkbookHost {
   return found;
 }
 
-const host = resolveHost;
-
 const readyHooks: (() => void)[] = [];
 let readyFired = false;
 
-/**
- * Runs `hook` once the taskpane's own `Office.onReady` callback has built the DOM
- * that the page integration rearranges.
- *
- * The bundler is free to order the two entry scripts either way round, so a hook
- * registered after the callback already ran fires immediately rather than never.
- */
+// Runs hook once Office.onReady has built the DOM embed.ts rearranges; if that
+// already happened (entry-script order isn't guaranteed), hook fires immediately.
 export function afterReady(hook: () => void): void {
   if (readyFired) {
     hook();
@@ -75,7 +62,7 @@ class WorksheetCollection {
 
   load(): this {
     this.context.defer(() => {
-      this.items = host()
+      this.items = resolveHost()
         .listWorksheets()
         .map((name) => new WorksheetProxy(this.context, name));
     });
@@ -89,7 +76,7 @@ class WorksheetCollection {
   getActiveWorksheet(): WorksheetProxy {
     const worksheet = new WorksheetProxy(this.context, "");
     this.context.defer(() => {
-      worksheet.name = host().getActiveWorksheet();
+      worksheet.name = resolveHost().getActiveWorksheet();
     });
     return worksheet;
   }
@@ -122,7 +109,7 @@ class TableCollection {
 
   load(): this {
     this.context.defer(() => {
-      this.items = host()
+      this.items = resolveHost()
         .listTables(this.worksheet.name)
         .map((name) => ({ name }));
     });
@@ -157,7 +144,7 @@ class ColumnCollection {
 
   load(): this {
     this.context.defer(() => {
-      this.items = host()
+      this.items = resolveHost()
         .listColumns(this.worksheet.name, this.table.name)
         .map((name) => ({ name }));
     });
@@ -178,20 +165,22 @@ class ColumnProxy {
   ) {}
 
   getDataBodyRange(): RangeProxy {
-    const range = new RangeProxy();
-    range.fetch = () => host().getColumnValues(this.worksheet.name, this.table.name, this.name);
-    range.context = this.context;
-    return range;
+    return new RangeProxy(this.context, () =>
+      resolveHost().getColumnValues(this.worksheet.name, this.table.name, this.name)
+    );
   }
 }
 
 class RangeProxy {
   values: CellValue[][] = [];
-  fetch: () => CellValue[][] = () => [];
-  context?: RequestContext;
+
+  constructor(
+    private readonly context: RequestContext,
+    private readonly fetch: () => CellValue[][]
+  ) {}
 
   load(): this {
-    this.context?.defer(() => {
+    this.context.defer(() => {
       this.values = this.fetch();
     });
     return this;
@@ -213,7 +202,7 @@ class ShapeCollection {
   addImage(base64: string): ShapeProxy {
     const shape = new ShapeProxy();
     this.context.defer(() => {
-      host().addImage(this.worksheet.name, decodeBase64(base64));
+      resolveHost().addImage(this.worksheet.name, decodeBase64(base64));
     });
     return shape;
   }
