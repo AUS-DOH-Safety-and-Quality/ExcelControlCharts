@@ -6,10 +6,6 @@ import { afterReady, resolveHost } from "./office-shim";
 const previewPadding = 16;
 const renderDebounceMs = 120;
 
-// taskpane.ts already re-previews itself for the category/type/settings controls;
-// these are the inputs it leaves uncovered.
-const uncoveredSelectors = ["numerator-selector", "denominator-selector", "sd-selector"];
-
 /** Parks the panel's own preview and action controls off-screen, still measurable. */
 const embedStyles = `
   .preview-card, .actions {
@@ -33,9 +29,8 @@ function debounce(callback: () => void, delay: number): () => void {
 afterReady(() => {
   const chartHost = resolveHost().getChartHost();
   const previewContainer = document.getElementById("preview-container");
-  const previewButton = document.getElementById("preview-plot") as HTMLButtonElement | null;
 
-  if (!previewContainer || !previewButton) {
+  if (!previewContainer) {
     return;
   }
 
@@ -58,22 +53,23 @@ afterReady(() => {
     previewContainer.style.height = `${chartHost.clientHeight + previewPadding}px`;
   };
 
-  // Clicking the panel's own (now hidden) preview button keeps every code path for
-  // building a chart in taskpane.ts, rather than duplicating any of it here.
+  /** Hides the "choose a category..." placeholder once a chart is actually showing. */
+  const syncRenderedFlag = () => {
+    if (window.__isChartPreviewReady?.()) {
+      chartHost.dataset.rendered = "true";
+    } else {
+      delete chartHost.dataset.rendered;
+    }
+  };
+
+  // Prods taskpane.ts for the layout/data changes it can't see on its own.
   const render = () => {
     syncSize();
-    if (previewButton.disabled) {
-      return;
-    }
-    previewButton.click();
-    chartHost.dataset.rendered = "true";
+    window.__renderChartPreview?.();
+    syncRenderedFlag();
   };
 
   const scheduleRender = debounce(render, renderDebounceMs);
-
-  for (const id of uncoveredSelectors) {
-    document.getElementById(id)?.addEventListener("change", scheduleRender);
-  }
 
   // Re-render when the column resizes, including when the panel is collapsed.
   const parentWindow = (window.parent as typeof window | undefined) ?? window;
@@ -81,5 +77,14 @@ afterReady(() => {
 
   // Lets the page redraw the chart when the spreadsheet itself is edited.
   window.__refreshChart = scheduleRender;
+
+  // Catches renders taskpane.ts triggers on its own. childList only: attributes would
+  // also catch syncRenderedFlag's own writes to chartHost.dataset, looping forever.
+  new MutationObserver(syncRenderedFlag).observe(chartHost, {
+    childList: true,
+    subtree: true,
+  });
+
   syncSize();
+  syncRenderedFlag();
 });

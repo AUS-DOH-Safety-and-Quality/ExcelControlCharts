@@ -10,11 +10,124 @@ type VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 type DataViewCategoryColumn = powerbi.DataViewCategoryColumn;
 type DataViewScopeIdentity = powerbi.DataViewScopeIdentity;
 type DataViewValueColumns = powerbi.DataViewValueColumns;
+type TooltipShowOptions = powerbi.extensibility.TooltipShowOptions;
 
+import { select } from "d3-selection";
 import { type settingsValueType as spcDefaultSettingsType } from "../PowerBI-SPC/src/settings";
 import { type settingsValueType as funnelDefaultSettingsType } from "../PowerBI-Funnels/src/settings";
 
 type AggregatableValue = number | string | null | undefined;
+
+/** Matches PowerBI's IPromise well enough for the `.then(...)` calls made on it here. */
+function resolved<T>(value: T): IPromise<T> {
+  return {
+    then: (onFulfilled: (value: T) => unknown) => onFulfilled(value),
+  } as unknown as IPromise<T>;
+}
+
+const tooltipFontSize = 12;
+const tooltipLineHeight = 16;
+const tooltipPadding = 6;
+
+// Mirrors controlcharts' interactiveUtils.js, minus crosstalk: local state instead of a group.
+function makeTooltipService(element: HTMLElement): powerbi.extensibility.ITooltipService {
+  function tooltipGroup() {
+    const svg = element.querySelector("svg");
+    if (!svg) return null;
+    const svgSelection = select(svg as SVGSVGElement);
+    const existing = svgSelection.select<SVGGElement>(".chart-tooltip-group");
+    return existing.empty()
+      ? svgSelection
+          .append("g")
+          .attr("class", "chart-tooltip-group")
+          .style("pointer-events", "none")
+      : existing;
+  }
+
+  return {
+    enabled: () => true,
+    move: () => undefined,
+    hide: () => {
+      tooltipGroup()?.selectAll("*").remove();
+    },
+    show: (options: TooltipShowOptions) => {
+      const svg = element.querySelector("svg") as SVGSVGElement | null;
+      const group = tooltipGroup();
+      if (!svg || !group) return;
+
+      // Dots report mouseover position in page coordinates; convert to the SVG's own.
+      const rect = svg.getBoundingClientRect();
+      const svgWidth = Number(svg.getAttribute("width")) || rect.width;
+      const svgHeight = Number(svg.getAttribute("height")) || rect.height;
+      const x =
+        (options.coordinates[0] - window.scrollX - rect.left) *
+        (rect.width ? svgWidth / rect.width : 1);
+      const y =
+        (options.coordinates[1] - window.scrollY - rect.top) *
+        (rect.height ? svgHeight / rect.height : 1);
+
+      const textLines = group
+        .selectAll<SVGTextElement, powerbi.extensibility.VisualTooltipDataItem>("text")
+        .data(options.dataItems)
+        .join("text")
+        .attr("x", tooltipPadding)
+        .attr("y", (_, i) => tooltipPadding + tooltipLineHeight * (i + 0.8))
+        .style("font-family", "Segoe UI, Arial, sans-serif")
+        .style("font-size", `${tooltipFontSize}px`)
+        .style("fill", "#111111")
+        .text((d) => (d.displayName ? `${d.displayName}: ${d.value}` : d.value));
+
+      let maxTextLength = 0;
+      textLines.each(function () {
+        maxTextLength = Math.max(maxTextLength, (this as SVGTextElement).getComputedTextLength());
+      });
+
+      const boxWidth = maxTextLength + tooltipPadding * 2;
+      const boxHeight = options.dataItems.length * tooltipLineHeight + tooltipPadding;
+
+      group
+        .selectAll<SVGRectElement, number>("rect")
+        .data([0])
+        .join("rect")
+        .lower()
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", boxWidth)
+        .attr("height", boxHeight)
+        .attr("rx", 4)
+        .attr("ry", 4)
+        .attr("fill", "#ffffff")
+        .attr("stroke", "#c9ced8")
+        .attr("stroke-width", 1);
+
+      const offsetX = x + 12 + boxWidth > svgWidth ? -(boxWidth + 12) : 12;
+      const offsetY = y + boxHeight > svgHeight ? -boxHeight : 0;
+
+      group.attr("transform", `translate(${x + offsetX}, ${y + offsetY})`);
+    },
+  };
+}
+
+function makeSelectionManager(): powerbi.extensibility.ISelectionManager {
+  let selectedIds: ISelectionId[] = [];
+
+  return {
+    registerOnSelectCallback: () => {},
+    getSelectionIds: () => selectedIds,
+    hasSelection: () => selectedIds.length > 0,
+    showContextMenu: () => resolved({}),
+    toggleExpandCollapse: () => resolved({}),
+    clear: () => {
+      selectedIds = [];
+      return resolved({});
+    },
+    select: (selectionId, multiSelect) => {
+      const nextIds = Array.isArray(selectionId) ? selectionId : [selectionId];
+      selectedIds = multiSelect ? [...selectedIds, ...nextIds] : nextIds;
+      return resolved(selectedIds);
+    },
+  };
+}
 
 function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
   return {
@@ -35,15 +148,7 @@ function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
         withTable: () => ({}) as ISelectionIdBuilder,
         createSelectionId: () => ({}) as ISelectionId,
       }),
-      createSelectionManager: () => ({
-        registerOnSelectCallback: () => {},
-        getSelectionIds: () => [],
-        showContextMenu: () => ({}) as IPromise<{}>,
-        clear: () => ({}) as IPromise<{}>,
-        toggleExpandCollapse: () => ({}) as IPromise<{}>,
-        select: () => ({}) as IPromise<ISelectionId[]>,
-        hasSelection: () => false,
-      }),
+      createSelectionManager: () => makeSelectionManager(),
       colorPalette: {
         isHighContrast: false,
         foreground: { value: "black" },
@@ -71,16 +176,11 @@ function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
       },
       persistProperties: () => {},
       applyJsonFilter: () => {},
-      tooltipService: {
-        show: () => null,
-        hide: () => null,
-        enabled: () => true,
-        move: () => null,
-      },
+      tooltipService: makeTooltipService(element),
       telemetry: {} as powerbi.extensibility.ITelemetryService,
       authenticationService: {} as powerbi.extensibility.IAuthenticationService,
       locale: "",
-      hostCapabilities: {} as powerbi.extensibility.HostCapabilities,
+      hostCapabilities: { allowInteractions: true },
       launchUrl: () => null,
       fetchMoreData: () => false,
       openModalDialog: () => ({}) as IPromise<ModalDialogResult>,
