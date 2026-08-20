@@ -32,7 +32,8 @@ Bun.serve({
   tls: await getCertificate(),
   async fetch(request) {
     const pathname = decodeURIComponent(new URL(request.url).pathname);
-    const filePath = path.join(distRoot, pathname === "/" ? "taskpane.html" : pathname);
+    // The static spreadsheet page is the site root; Excel loads /taskpane.html directly.
+    const filePath = path.join(distRoot, pathname === "/" ? "index.html" : pathname);
     const file = Bun.file(filePath);
 
     if (!filePath.startsWith(distRoot) || !(await file.exists())) {

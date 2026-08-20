@@ -1599,7 +1599,7 @@ async function createPlot() {
     drawChartFrameAndHeader(currVisual, filteredRawData, controlChartType);
 
     var image = currentWorksheet.shapes.addImage(
-      btoa((currVisual.svg.node() as SVGSVGElement).outerHTML)
+      encodeSvgAsBase64((currVisual.svg.node() as SVGSVGElement).outerHTML)
     );
     image.name = "Image";
     image.top = 10;
@@ -1723,6 +1723,20 @@ async function previewPlot() {
     (currVisual.svg as any).on("mousemove", null).on("mouseleave", null);
     drawChartFrameAndHeader(currVisual, filteredRawData, controlChartType);
   });
+}
+
+/**
+ * Base64-encodes chart markup as UTF-8. Plain `btoa` throws on any character
+ * outside Latin-1, which a chart title only has to contain an en-dash or a
+ * smart quote to hit; the encoding is byte-identical for ASCII markup.
+ */
+function encodeSvgAsBase64(svg: string): string {
+  const utf8 = new TextEncoder().encode(svg);
+  let binary = "";
+  for (const byte of utf8) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
 }
 
 /** Default helper for invoking an action and handling errors. */
