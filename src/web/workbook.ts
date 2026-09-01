@@ -187,7 +187,7 @@ export function loadRows(sheet: Sheet, grid: string[][]): void {
 
 /** A small, plausible SPC dataset so the page is usable before any import. */
 export function sampleSheet(): Sheet {
-  const sheet = createSheet("Sample data");
+  const sheet = createSheet("Sample SPC data");
   const grid: string[][] = [["Date", "Infections", "Bed days"]];
   const numerators = [
     12, 9, 14, 11, 8, 13, 10, 16, 22, 19, 12, 9, 11, 7, 13, 10, 12, 8, 14, 9, 11, 15, 10, 12,
@@ -216,19 +216,63 @@ export function createWorkbook(): Workbook {
 }
 
 const storageKey = "excel-control-charts:workbook";
+const maxStoredWorkbookBytes = 1_500_000;
+let scheduledSave: number | undefined;
+
+function isBlankRow(row: string[]): boolean {
+  return row.every((cell) => cell === "");
+}
+
+function workbookForStorage(workbook: Workbook): Workbook {
+  return {
+    activeSheet: workbook.activeSheet,
+    sheets: workbook.sheets.map((sheet) => {
+      let lastDataRow = sheet.rows.length;
+      while (lastDataRow > 0 && isBlankRow(sheet.rows[lastDataRow - 1])) {
+        lastDataRow -= 1;
+      }
+      return { ...sheet, header: [...sheet.header], rows: sheet.rows.slice(0, lastDataRow) };
+    }),
+  };
+}
 
 export function saveWorkbook(workbook: Workbook): void {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(workbook));
-  } catch {
-    // Private browsing or a full quota; the page still works without persistence.
+  if (scheduledSave !== undefined) {
+    if ("cancelIdleCallback" in window) {
+      window.cancelIdleCallback(scheduledSave);
+    } else {
+      window.clearTimeout(scheduledSave);
+    }
+  }
+
+  const save = () => {
+    scheduledSave = undefined;
+    try {
+      const serialized = JSON.stringify(workbookForStorage(workbook));
+      if (serialized.length > maxStoredWorkbookBytes) {
+        localStorage.removeItem(storageKey);
+        return;
+      }
+      localStorage.setItem(storageKey, serialized);
+    } catch {
+      // Private browsing or a full quota; the page still works without persistence.
+    }
+  };
+
+  if ("requestIdleCallback" in window) {
+    scheduledSave = window.requestIdleCallback(save, { timeout: 1_000 });
+  } else {
+    scheduledSave = window.setTimeout(save, 0);
   }
 }
 
 export function loadWorkbook(): Workbook {
   try {
     const stored = localStorage.getItem(storageKey);
-    if (!stored) {
+    if (!stored || stored.length > maxStoredWorkbookBytes) {
+      if (stored) {
+        localStorage.removeItem(storageKey);
+      }
       return createWorkbook();
     }
     const parsed = JSON.parse(stored) as Workbook;
