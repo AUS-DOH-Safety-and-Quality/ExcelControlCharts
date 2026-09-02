@@ -15,6 +15,15 @@ The commands below will download the script and then execute it, you can also do
 irm https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.ps1 | iex
 ```
 
+You can also try the following if you have a proxy.
+
+```pwsh
+$proxy = [System.Net.WebRequest]::GetSystemWebProxy()
+$proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+[System.Net.WebRequest]::DefaultWebProxy = $proxy
+irm 'https://aus-doh-safety-and-quality.github.io/ExcelControlCharts/install.ps1' | iex
+```
+
 ###  macOS (Terminal):
 
 ```sh
