@@ -1,0 +1,21 @@
+{
+  "name": "Excel Control Charts",
+  "short_name": "Control Charts",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d5d7b",
+  "icons": [
+    {
+      "src": "./assets/spc_excel_add_in_logo_192_192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./assets/spc_excel_add_in_logo_300_300.png",
+      "sizes": "300x300",
+      "type": "image/png"
+    }
+  ]
+}

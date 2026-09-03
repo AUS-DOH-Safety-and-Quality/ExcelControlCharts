@@ -7,8 +7,15 @@
     <title>Web Control Charts — Web</title>
     <meta name="description" content="Build SPC and funnel charts in the browser, without Excel." />
     <link rel="icon" href="../../assets/spc_excel_add_in_logo_64_64.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#1d5d7b" />
     <link href="web.css" rel="stylesheet" type="text/css" />
     <script type="module" src="./app.ts"></script>
+    <script>
+        if ("serviceWorker" in navigator && location.protocol === "https:") {
+            navigator.serviceWorker.register("./service-worker.js");
+        }
+    </script>
 </head>
 
 <body class="page">

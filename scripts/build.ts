@@ -163,6 +163,8 @@ export async function runBuild(mode: BuildMode): Promise<void> {
     filter: (src) => !isIgnoredAsset(path.basename(src)),
   });
   await fs.writeFile(path.join(distRoot, "manifest.xml"), await renderManifest(mode));
+  await fs.cp(path.join(repoRoot, "src", "web", "manifest.webmanifest"), path.join(distRoot, "manifest.webmanifest"));
+  await fs.cp(path.join(repoRoot, "src", "web", "service-worker.js"), path.join(distRoot, "service-worker.js"));
 
   // Served alongside the manifest so users can install with a single download.
   for (const script of installerScripts) {
