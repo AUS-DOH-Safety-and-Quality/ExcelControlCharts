@@ -57,8 +57,11 @@ class WorkbookProxy {
 // small enough to populate every known property on the next `sync()`.
 class WorksheetCollection {
   items: WorksheetProxy[] = [];
+  readonly onActivated: WorksheetActivatedEvent;
 
-  constructor(private readonly context: RequestContext) {}
+  constructor(private readonly context: RequestContext) {
+    this.onActivated = new WorksheetActivatedEvent(context);
+  }
 
   load(): this {
     this.context.defer(() => {
@@ -79,6 +82,14 @@ class WorksheetCollection {
       worksheet.name = resolveHost().getActiveWorksheet();
     });
     return worksheet;
+  }
+}
+
+class WorksheetActivatedEvent {
+  constructor(private readonly context: RequestContext) {}
+
+  add(handler: () => void): void {
+    this.context.defer(() => resolveHost().onWorksheetActivated(handler));
   }
 }
 

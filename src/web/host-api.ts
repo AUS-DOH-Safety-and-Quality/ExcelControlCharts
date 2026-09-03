@@ -6,6 +6,7 @@ export type CellValue = string | number | null;
 export interface WorkbookHost {
   listWorksheets(): string[];
   getActiveWorksheet(): string;
+  onWorksheetActivated(handler: () => void): void;
   listTables(worksheet: string): string[];
   listColumns(worksheet: string, table: string): string[];
   /** Column values shaped like an Excel data-body range: one row per entry. */

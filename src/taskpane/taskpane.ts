@@ -1053,18 +1053,7 @@ Office.onReady((info) => {
     const sdSel = document.getElementById("sd-selector") as HTMLSelectElement | null;
 
     worksheetSel.onchange = () => {
-      tryCatch(async () => {
-        await updateTableSelector();
-        // Only try to populate columns if a table is actually selected
-        const nextTable = (document.getElementById("table-selector") as HTMLSelectElement | null)
-          ?.value;
-        if (nextTable) {
-          await updateColumnSelectors();
-        } else {
-          clearColumnSelectors();
-        }
-        updateActionButtonsEnabledState();
-      });
+      tryCatch(updateWorksheetDependentSelectors);
     };
     tableSel.onchange = () => {
       tryCatch(async () => {
@@ -1319,22 +1308,38 @@ Office.onReady((info) => {
 
     // Initial population of worksheet selector, then tables/columns
     tryCatch(async () => {
+      await Excel.run(async (context) => {
+        const onActivated = context.workbook.worksheets.onActivated;
+        if (!onActivated) {
+          return;
+        }
+        onActivated.add(() => {
+          tryCatch(async () => {
+            await updateWorksheetSelector();
+            await updateWorksheetDependentSelectors();
+          });
+        });
+        await context.sync();
+      });
       await updateWorksheetSelector();
-      await updateTableSelector();
-      const nextTable = (document.getElementById("table-selector") as HTMLSelectElement | null)
-        ?.value;
-      if (nextTable) {
-        await updateColumnSelectors();
-      } else {
-        clearColumnSelectors();
-      }
-      updateActionButtonsEnabledState();
+      await updateWorksheetDependentSelectors();
     });
     updateActionButtonsEnabledState();
   }
 });
 
 function clearColumnSelectors() {
+
+  async function updateWorksheetDependentSelectors() {
+    await updateTableSelector();
+    const nextTable = (document.getElementById("table-selector") as HTMLSelectElement | null)?.value;
+    if (nextTable) {
+      await updateColumnSelectors();
+    } else {
+      clearColumnSelectors();
+    }
+    updateActionButtonsEnabledState();
+  }
   const categorySelector = document.getElementById("category-selector") as HTMLSelectElement | null;
   const numeratorSelector = document.getElementById(
     "numerator-selector"

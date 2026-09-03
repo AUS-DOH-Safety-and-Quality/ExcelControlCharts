@@ -16,6 +16,13 @@ import {
 } from "./workbook";
 
 const workbook: Workbook = loadWorkbook();
+const worksheetActivationHandlers = new Set<() => void>();
+
+function notifyWorksheetActivated(): void {
+  for (const handler of worksheetActivationHandlers) {
+    handler();
+  }
+}
 
 const element = <T extends HTMLElement>(id: string): T => {
   const found = document.getElementById(id);
@@ -92,10 +99,14 @@ function renderTabs(): void {
 }
 
 function selectSheet(name: string): void {
+  if (workbook.activeSheet === name) {
+    return;
+  }
   workbook.activeSheet = name;
   renderTabs();
   grid.render(activeSheet());
   persist();
+  notifyWorksheetActivated();
 }
 
 function addSheet(): void {
@@ -116,6 +127,7 @@ function renameSheet(name: string): void {
   getSheet(workbook, name).name = next;
   if (workbook.activeSheet === name) {
     workbook.activeSheet = next;
+    notifyWorksheetActivated();
   }
   renderTabs();
   persist();
@@ -135,6 +147,7 @@ function deleteSheet(): void {
 }
 
 async function openFiles(files: FileList | null): Promise<void> {
+  let selectedSheetName: string | undefined;
   for (const file of Array.from(files ?? [])) {
     const rows = parseDelimited(await file.text());
     if (rows.length === 0) {
@@ -145,16 +158,21 @@ async function openFiles(files: FileList | null): Promise<void> {
     loadRows(sheet, rows);
     workbook.sheets.push(sheet);
     workbook.activeSheet = name;
+    selectedSheetName = name;
   }
   renderTabs();
   grid.render(activeSheet());
   persist();
+  if (selectedSheetName) {
+    notifyWorksheetActivated();
+  }
 }
 
 /** Backs the Office.js shim running inside the taskpane frame. */
 const excelHost: WorkbookHost = {
-  listWorksheets: () => workbook.sheets.filter(hasTable).map((sheet) => sheet.name),
+  listWorksheets: () => workbook.sheets.map((sheet) => sheet.name),
   getActiveWorksheet: () => workbook.activeSheet,
+  onWorksheetActivated: (handler) => worksheetActivationHandlers.add(handler),
   listTables: (worksheet) => {
     const sheet = getSheet(workbook, worksheet);
     return hasTable(sheet) ? [sheet.tableName] : [];
