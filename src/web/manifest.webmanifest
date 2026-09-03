@@ -13,8 +13,8 @@
       "type": "image/png"
     },
     {
-      "src": "./assets/spc_excel_add_in_logo_300_300.png",
-      "sizes": "300x300",
+      "src": "./assets/spc_excel_add_in_logo_512_512.png",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ]
