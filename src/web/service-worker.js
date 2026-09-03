@@ -1,4 +1,4 @@
-const cacheName = "excel-control-charts-v1";
+const cacheName = "excel-control-charts-v2";
 const appShell = ["./", "./index.html", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
