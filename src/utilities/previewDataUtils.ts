@@ -8,13 +8,13 @@ type IColorPalette = powerbi.extensibility.IColorPalette;
 type ModalDialogResult = powerbi.extensibility.visual.ModalDialogResult;
 type VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 type DataViewCategoryColumn = powerbi.DataViewCategoryColumn;
-type DataViewScopeIdentity = powerbi.DataViewScopeIdentity;
+type DataViewScopeIdentity = powerbi.visuals.CustomVisualOpaqueIdentity;
 type DataViewValueColumns = powerbi.DataViewValueColumns;
 type TooltipShowOptions = powerbi.extensibility.TooltipShowOptions;
 
 import { select } from "d3-selection";
-import { type settingsValueType as spcDefaultSettingsType } from "../PowerBI-SPC/src/settings";
-import { type settingsValueType as funnelDefaultSettingsType } from "../PowerBI-Funnels/src/settings";
+import { type settingsValueType as spcDefaultSettingsType } from "powerbi-spc/src/settings";
+import { type settingsValueType as funnelDefaultSettingsType } from "powerbi-funnels/src/settings";
 
 type AggregatableValue = number | string | null | undefined;
 
@@ -55,16 +55,11 @@ function makeTooltipService(element: HTMLElement): powerbi.extensibility.IToolti
       const group = tooltipGroup();
       if (!svg || !group) return;
 
-      // Dots report mouseover position in page coordinates; convert to the SVG's own.
       const rect = svg.getBoundingClientRect();
       const svgWidth = Number(svg.getAttribute("width")) || rect.width;
       const svgHeight = Number(svg.getAttribute("height")) || rect.height;
-      const x =
-        (options.coordinates[0] - window.scrollX - rect.left) *
-        (rect.width ? svgWidth / rect.width : 1);
-      const y =
-        (options.coordinates[1] - window.scrollY - rect.top) *
-        (rect.height ? svgHeight / rect.height : 1);
+      const x = options.coordinates[0];
+      const y = options.coordinates[1];
 
       const textLines = group
         .selectAll<SVGTextElement, powerbi.extensibility.VisualTooltipDataItem>("text")
@@ -133,21 +128,20 @@ function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
   return {
     element: element,
     host: {
-      createSelectionIdBuilder: () => ({
-        withCategory: () => ({
-          withCategory: () => ({}) as ISelectionIdBuilder,
-          withSeries: () => ({}) as ISelectionIdBuilder,
-          withMeasure: () => ({}) as ISelectionIdBuilder,
-          withMatrixNode: () => ({}) as ISelectionIdBuilder,
-          withTable: () => ({}) as ISelectionIdBuilder,
-          createSelectionId: () => ({}) as ISelectionId,
-        }),
-        withSeries: () => ({}) as ISelectionIdBuilder,
-        withMeasure: () => ({}) as ISelectionIdBuilder,
-        withMatrixNode: () => ({}) as ISelectionIdBuilder,
-        withTable: () => ({}) as ISelectionIdBuilder,
-        createSelectionId: () => ({}) as ISelectionId,
-      }),
+      createSelectionIdBuilder: () => {
+        let key = "";
+        const builder = {
+          withCategory: (category: DataViewCategoryColumn, index: number) => {
+            key += JSON.stringify([category.source.displayName, index]);
+            return builder;
+          },
+          createSelectionId: () => {
+            const selectionKey = key;
+            return { getKey: () => selectionKey } as ISelectionId;
+          },
+        };
+        return builder as ISelectionIdBuilder;
+      },
       createSelectionManager: () => makeSelectionManager(),
       colorPalette: {
         isHighContrast: false,
