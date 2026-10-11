@@ -14,8 +14,6 @@ export default [
   },
   ...[{
     ignores: [
-        "src/PowerBI-SPC",
-        "src/PowerBI-Funnels",
         "*.js",
         "*.mjs"
     ]

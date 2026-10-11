@@ -1,5 +1,5 @@
-import type { settingsValueType as funnelSettingsValueType } from "../PowerBI-Funnels/src/settings";
-import type { settingsValueType as spcSettingsValueType } from "../PowerBI-SPC/src/settings";
+import type { settingsValueType as funnelSettingsValueType } from "powerbi-funnels/src/settings";
+import type { settingsValueType as spcSettingsValueType } from "powerbi-spc/src/settings";
 import { createInputField, createSelectField } from "./uiFields";
 
 type ChartFamily = "spc" | "funnel";

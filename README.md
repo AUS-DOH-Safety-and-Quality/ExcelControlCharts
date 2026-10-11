@@ -63,18 +63,20 @@ The page also works offline: save `index.html` and open it directly, no server n
 
 ## Initialising the Development Environment
 
-The repo uses submodules to include the [`PowerBI-SPC`](https://github.com/AUS-DOH-Safety-and-Quality/PowerBI-SPC) and [`PowerBI-Funnels`](https://github.com/AUS-DOH-Safety-and-Quality/PowerBI-Funnels) sources, so be sure to clone those when setting a local copy of the repo:
+The repo consumes [`PowerBI-SPC`](https://github.com/AUS-DOH-Safety-and-Quality/PowerBI-SPC) and [`PowerBI-Funnels`](https://github.com/AUS-DOH-Safety-and-Quality/PowerBI-Funnels) as GitHub dependencies pinned to commits in `package.json`. Both use the shared `powerbi-visuals-core` package.
 
 ```bash
-git clone --recursive https://github.com/AUS-DOH-Safety-and-Quality/ExcelControlCharts
+git clone https://github.com/AUS-DOH-Safety-and-Quality/ExcelControlCharts
 ```
 
-The dependencies for the submodules are also included in the main `package.json` file, so you can install them all at once (note that this may take a few minutes):
+Install all dependencies with Bun:
 
 ```bash
 cd ExcelControlCharts
 bun install
 ```
+
+To update either visual, change its commit hash in `package.json` and run `bun install` to refresh `bun.lock`. The pinned commits, including the Core commit they depend on, must be available on GitHub.
 
 ## Developing Locally
 

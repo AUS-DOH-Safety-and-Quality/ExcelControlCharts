@@ -2,20 +2,19 @@
 
 import { makeConstructorArgs, makeUpdateValues } from "../utilities/previewDataUtils";
 import { renderSpcDataSettings } from "../utilities/renderSpcDataSettings";
-import { patchSpcVisualSettingsForTaskpane } from "../utilities/spcVisualSettingsCompat";
 import { attachFieldInfo } from "../utilities/uiFields";
-import dateSettingsToFormatOptions from "../PowerBI-SPC/src/Functions/dateSettingsToFormatOptions";
-import formatDateParts from "../PowerBI-SPC/src/Functions/formatDateParts";
-import { Visual as spcVisualClass } from "../PowerBI-SPC/src/visual";
-import { Visual as funnelVisualClass } from "../PowerBI-Funnels/src/visual";
+import dateSettingsToFormatOptions from "powerbi-spc/src/Functions/dateSettingsToFormatOptions";
+import formatDateParts from "powerbi-spc/src/Functions/formatDateParts";
+import { Visual as spcVisualClass } from "powerbi-spc/src/visual";
+import { Visual as funnelVisualClass } from "powerbi-funnels/src/visual";
 import {
   defaultSettings as spcDefaultSettings,
   type settingsValueType as spcDefaultSettingsType,
-} from "../PowerBI-SPC/src/settings";
+} from "powerbi-spc/src/settings";
 import {
   defaultSettings as funnelDefaultSettings,
   type settingsValueType as funnelDefaultSettingsType,
-} from "../PowerBI-Funnels/src/settings";
+} from "powerbi-funnels/src/settings";
 
 const spcDiv = document.createElement("div");
 spcDiv.className = "spc-container";
@@ -26,7 +25,6 @@ funnelDiv.className = "funnel-container";
 funnelDiv.setAttribute("hidden", "true");
 
 const spcVisual = new spcVisualClass(makeConstructorArgs(spcDiv));
-patchSpcVisualSettingsForTaskpane(spcVisual);
 const funnelVisual = new funnelVisualClass(makeConstructorArgs(funnelDiv));
 
 const spcInputSettings = structuredClone(spcDefaultSettings) as spcDefaultSettingsType;
@@ -461,7 +459,11 @@ function applyFunnelCategoryLabelStyle() {
   funnelInputSettings.labels.label_marker_outline_colour = "transparent";
 }
 
-function drawChartFrameAndHeader(currVisual: any, rawData: RawDataRow[], controlChartType: string) {
+function drawChartFrameAndHeader(
+  currVisual: spcVisualClass | funnelVisualClass,
+  rawData: RawDataRow[],
+  controlChartType: string
+) {
   const svg = currVisual.svg;
   svg.selectAll(".chart-background").remove();
   svg.selectAll(".chart-title,.chart-subtitle").remove();
@@ -479,11 +481,12 @@ function drawChartFrameAndHeader(currVisual: any, rawData: RawDataRow[], control
   const dateRange =
     controlChartType === "spc" && shouldShowDateRange() ? formatDateRange(rawData) : null;
 
-  if (!titleText && !dateRange) return;
+  if ((!titleText && !dateRange) || !svg.select(".errormessage").empty()) {
+    return;
+  }
 
-  const plotProps: any = currVisual?.plotProperties || {};
   const svgWidth = Number(svg.attr("width")) || 640;
-  const x = plotProps.xAxis?.start_padding || 20;
+  const x = currVisual.plotProperties.xAxis.start_padding;
   const maxTextWidth = Math.max(80, svgWidth - x - 16);
   let nextY = 0;
 
@@ -1314,7 +1317,7 @@ Office.onReady((info) => {
           return;
         }
         onActivated.add(() => {
-          tryCatch(async () => {
+          return tryCatch(async () => {
             await updateWorksheetSelector();
             await updateWorksheetDependentSelectors();
           });
@@ -1328,18 +1331,18 @@ Office.onReady((info) => {
   }
 });
 
-function clearColumnSelectors() {
-
-  async function updateWorksheetDependentSelectors() {
-    await updateTableSelector();
-    const nextTable = (document.getElementById("table-selector") as HTMLSelectElement | null)?.value;
-    if (nextTable) {
-      await updateColumnSelectors();
-    } else {
-      clearColumnSelectors();
-    }
-    updateActionButtonsEnabledState();
+async function updateWorksheetDependentSelectors() {
+  await updateTableSelector();
+  const nextTable = (document.getElementById("table-selector") as HTMLSelectElement | null)?.value;
+  if (nextTable) {
+    await updateColumnSelectors();
+  } else {
+    clearColumnSelectors();
   }
+  updateActionButtonsEnabledState();
+}
+
+function clearColumnSelectors() {
   const categorySelector = document.getElementById("category-selector") as HTMLSelectElement | null;
   const numeratorSelector = document.getElementById(
     "numerator-selector"
@@ -1756,8 +1759,8 @@ async function previewPlot() {
 
     const currVisual = controlChartType === "spc" ? spcVisual : funnelVisual;
     currVisual.update(updateArgs);
-    // Remove any mouse handlers that power the tooltip on the root svg (defense in depth)
-    (currVisual.svg as any).on("mousemove", null).on("mouseleave", null);
+    // Keep preview tooltips attached to points.
+    currVisual.svg.on("mousemove.plot", null).on("mouseleave.plot", null);
     drawChartFrameAndHeader(currVisual, filteredRawData, controlChartType);
   });
 }
