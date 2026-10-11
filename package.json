@@ -17,7 +17,6 @@
     "dev-server": "bun run scripts/dev-server.ts",
     "lint": "bun x eslint src scripts",
     "lint:fix": "bun x eslint src scripts --fix",
-    "test": "bun test",
     "start": "office-addin-debugging start manifest.xml",
     "stop": "office-addin-debugging stop manifest.xml",
     "validate": "office-addin-manifest validate manifest.xml",

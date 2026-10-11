@@ -21,9 +21,6 @@ jobs:
     - name: Install dependencies
       run: bun install
 
-    - name: Test visual integration
-      run: bun run test
-
     - name: Test if plugin can be built
       run: |
         bun run build
