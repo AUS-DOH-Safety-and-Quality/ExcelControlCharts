@@ -80,10 +80,27 @@ function takeAsset(html: string, pattern: RegExp): { fileName: string; html: str
   return { fileName: match[1], html: html.replace(match[0], "") };
 }
 
-function extractAssets(html: string): { html: string; styleFile: string; scriptFile: string } {
-  const style = takeAsset(html, /<link[^>]*?href="\.\/([^"]+\.css)"[^>]*>/);
-  const script = takeAsset(style.html, /<script[^>]*?src="\.\/([^"]+\.js)"[^>]*><\/script>/);
-  return { html: script.html, styleFile: style.fileName, scriptFile: script.fileName };
+function extractAssets(html: string): {
+  html: string;
+  styleFile: string | null;
+  styleText: string;
+  scriptFile: string;
+} {
+  const linkedStyle = html.match(/<link[^>]*?href="\.\/([^"]+\.css)"[^>]*>/);
+  const inlineStyle = html.match(/<style[^>]*>([\s\S]*?)<\/style>/);
+  if (!linkedStyle && !inlineStyle) {
+    throw new Error("Could not find bundled CSS in the built HTML");
+  }
+  const htmlWithoutStyles = html
+    .replace(linkedStyle?.[0] ?? "", "")
+    .replace(inlineStyle?.[0] ?? "", "");
+  const script = takeAsset(htmlWithoutStyles, /<script[^>]*?src="\.\/([^"]+\.js)"[^>]*><\/script>/);
+  return {
+    html: script.html,
+    styleFile: linkedStyle?.[1] ?? null,
+    styleText: inlineStyle?.[1] ?? "",
+    scriptFile: script.fileName,
+  };
 }
 
 // Inlines the built JS/CSS/images into a single index.html: under file://, every
@@ -105,8 +122,8 @@ async function inlineWebApp(): Promise<void> {
 
   const read = (fileName: string) => fs.readFile(path.join(distRoot, fileName), "utf-8");
   const [indexStyle, taskpaneStyle, taskpaneScript, indexScript] = await Promise.all([
-    read(index.styleFile),
-    read(taskpane.styleFile),
+    index.styleFile ? read(index.styleFile) : Promise.resolve(index.styleText),
+    taskpane.styleFile ? read(taskpane.styleFile) : Promise.resolve(taskpane.styleText),
     read(taskpane.scriptFile),
     read(index.scriptFile),
   ]);

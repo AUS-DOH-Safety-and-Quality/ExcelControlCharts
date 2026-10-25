@@ -1,4 +1,5 @@
 import type { CellValue } from "./host-api";
+import { isLocalStorageEnabled } from "../utilities/localStoragePreference";
 
 export const MIN_ROWS = 40;
 export const MIN_COLUMNS = 6;
@@ -16,6 +17,8 @@ export interface Sheet {
 export interface Workbook {
   sheets: Sheet[];
   activeSheet: string;
+  chartSettings?: unknown;
+  chartSettingsFileName?: string | null;
 }
 
 const columnLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -226,6 +229,8 @@ function isBlankRow(row: string[]): boolean {
 function workbookForStorage(workbook: Workbook): Workbook {
   return {
     activeSheet: workbook.activeSheet,
+    chartSettings: workbook.chartSettings,
+    chartSettingsFileName: workbook.chartSettingsFileName,
     sheets: workbook.sheets.map((sheet) => {
       let lastDataRow = sheet.rows.length;
       while (lastDataRow > 0 && isBlankRow(sheet.rows[lastDataRow - 1])) {
@@ -238,15 +243,22 @@ function workbookForStorage(workbook: Workbook): Workbook {
 
 export function saveWorkbook(workbook: Workbook): void {
   if (scheduledSave !== undefined) {
-    if ("cancelIdleCallback" in window) {
+    if (typeof window.cancelIdleCallback === "function") {
       window.cancelIdleCallback(scheduledSave);
     } else {
       window.clearTimeout(scheduledSave);
     }
   }
 
+  if (!isLocalStorageEnabled()) {
+    return;
+  }
+
   const save = () => {
     scheduledSave = undefined;
+    if (!isLocalStorageEnabled()) {
+      return;
+    }
     try {
       const serialized = JSON.stringify(workbookForStorage(workbook));
       if (serialized.length > maxStoredWorkbookBytes) {
@@ -259,7 +271,7 @@ export function saveWorkbook(workbook: Workbook): void {
     }
   };
 
-  if ("requestIdleCallback" in window) {
+  if (typeof window.requestIdleCallback === "function") {
     scheduledSave = window.requestIdleCallback(save, { timeout: 1_000 });
   } else {
     scheduledSave = window.setTimeout(save, 0);
@@ -267,6 +279,10 @@ export function saveWorkbook(workbook: Workbook): void {
 }
 
 export function loadWorkbook(): Workbook {
+  if (!isLocalStorageEnabled()) {
+    return createWorkbook();
+  }
+
   try {
     const stored = localStorage.getItem(storageKey);
     if (!stored || stored.length > maxStoredWorkbookBytes) {

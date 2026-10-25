@@ -1,5 +1,11 @@
-const cacheName = "excel-control-charts-v2";
-const appShell = ["./", "./index.html", "./manifest.webmanifest"];
+const cacheName = "excel-control-charts-v6";
+const appShell = [
+  "./",
+  "./index.html",
+  "./manifest.webmanifest",
+  "./assets/spc_excel_add_in_logo_192_192.png",
+  "./assets/spc_excel_add_in_logo_512_512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(cacheName).then((cache) => cache.addAll(appShell)));

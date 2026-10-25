@@ -20,7 +20,7 @@ ul { margin: 0; padding: 0; }
     --surface: #ffffff;
     --text: #0f172a;
     --muted: #465169;
-    --border: #e5e7eb;
+    --border: #c7d0dd;
     --primary: #2563eb;
     --primary-foreground: #ffffff;
     --focus: 0 0 0 3px rgba(37, 99, 235, 0.35);
@@ -73,6 +73,17 @@ ul { margin: 0; padding: 0; }
 .app-title { font-size: 18px; line-height: 1.25; margin: 0; font-weight: 650; }
 .app-subtitle { margin: 2px 0 0 0; color: var(--muted); font-size: 14px; }
 
+.action-status {
+    min-height: 1.2em;
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.action-status[data-state="error"] {
+    color: #b42318;
+}
+
 .theme-toggle {
     margin-left: auto;
     display: inline-flex;
@@ -102,6 +113,48 @@ ul { margin: 0; padding: 0; }
 .theme-toggle__label {
     pointer-events: none;
 }
+
+.storage-switch {
+    width: 42px;
+    height: 24px;
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: #94a3b8;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.storage-switch::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.28);
+    transition: transform 0.16s ease;
+}
+
+.storage-switch:checked {
+    border-color: var(--primary);
+    background: var(--primary);
+}
+
+.storage-switch:checked::after { transform: translateX(18px); }
+.storage-switch:focus-visible { outline: none; box-shadow: var(--focus); }
+
+.settings-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.settings-actions .btn { flex: 1; }
 
 .sideload { padding: 12px 16px; }
 .sideload h2 { font-size: 14px; font-weight: 500; margin: 0; color: var(--muted); }
@@ -432,10 +485,17 @@ select.ms-Dropdown:focus { box-shadow: var(--focus); border-color: transparent; 
     border-bottom-right-radius: var(--radius-lg);
 }
 
-/* Disable interactive tooltips in preview */
-.preview-container svg,
-.preview-container g {
+/* Keep preview chrome inert while allowing points and the SVG background to handle clicks. */
+.preview-container g:not(.dotsgroup) {
     pointer-events: none !important;
+}
+.preview-container svg {
+    pointer-events: all !important;
+}
+.preview-container .dotsgroup,
+.preview-container .dotsgroup path {
+    pointer-events: all !important;
+    cursor: pointer;
 }
 .preview-container .ttip-line-x,
 .preview-container .ttip-line-y { display: none !important; }

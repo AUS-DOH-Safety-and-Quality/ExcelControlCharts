@@ -2,8 +2,6 @@
 // Imports office-shim for its side effects, which also guarantees it installs first.
 import { afterReady, resolveHost } from "./office-shim";
 
-/** Matches the padding `previewPlot` subtracts from its container's measured size. */
-const previewPadding = 16;
 const renderDebounceMs = 120;
 
 /** Parks the panel's own preview and action controls off-screen, still measurable. */
@@ -46,11 +44,12 @@ afterReady(() => {
 
   /**
    * `previewPlot` sizes the chart from the preview container's bounding box, so
-   * keep that off-screen box matching the on-page column the chart now lives in.
+   * give it the chart host's border-box dimensions. `previewPlot` removes its
+   * own 16px padding, matching the visible host's content box.
    */
   const syncSize = () => {
-    previewContainer.style.width = `${chartHost.clientWidth + previewPadding}px`;
-    previewContainer.style.height = `${chartHost.clientHeight + previewPadding}px`;
+    previewContainer.style.width = `${chartHost.clientWidth}px`;
+    previewContainer.style.height = `${chartHost.clientHeight}px`;
   };
 
   /** Hides the "choose a category..." placeholder once a chart is actually showing. */
@@ -70,6 +69,9 @@ afterReady(() => {
   };
 
   const scheduleRender = debounce(render, renderDebounceMs);
+  window.__clearChartPreview = () => {
+    delete chartHost.dataset.rendered;
+  };
 
   // Re-render when the column resizes, including when the panel is collapsed.
   const parentWindow = (window.parent as typeof window | undefined) ?? window;

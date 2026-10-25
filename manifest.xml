@@ -5,7 +5,7 @@
   <ProviderName>Contoso</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Excel Control Charts"/>
-  <Description DefaultValue="A template to get started."/>
+  <Description DefaultValue="Excel add-in for creating and managing control charts."/>
   <IconUrl DefaultValue="https://localhost:3100/assets/spc_excel_add_in_logo_32_32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3100/assets/spc_excel_add_in_logo_64_64.png"/>
   <SupportUrl DefaultValue="https://www.contoso.com/help"/>
@@ -72,12 +72,12 @@
         <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3100/taskpane.html"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="Get started with your sample add-in!"/>
+        <bt:String id="GetStarted.Title" DefaultValue="Get started with the Excel Control Charts Add-In"/>
         <bt:String id="CommandsGroup.Label" DefaultValue="Control Charts"/>
         <bt:String id="TaskpaneButton.Label" DefaultValue="Show Settings Pane"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Your sample add-in loaded successfully. Go to the HOME tab and click the 'Show Settings Pane' button to get started."/>
+        <bt:String id="GetStarted.Description" DefaultValue="The Control charts Add-In has loaded successfully. Go to the HOME tab and click the 'Show Settings Pane' button to get started."/>
         <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to Show a Taskpane"/>
       </bt:LongStrings>
     </Resources>

@@ -1,6 +1,10 @@
 # ExcelControlCharts
 An Excel plugin for SPC charts and Funnel plots
 
+> **Note:** This add-in is early in development. It is currently being updated regularly in response to user feedback.
+
+
+
 
 ## Installing the Add-in
 

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Changelog | Excel Control Charts</title>
+    <meta name="description" content="Release notes for Excel Control Charts." />
+    <link rel="icon" href="../../assets/spc_excel_add_in_logo_64_64.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#1d5d7b" />
+    <link href="docs.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="./" aria-label="Open Control Charts"><img src="../../assets/spc_excel_add_in_logo_128_128.png" width="42" height="42" alt="" /><span>Control Charts</span></a>
+        <a class="open-app" href="./">Open web app</a>
+    </header>
+    <main>
+        <section class="intro" aria-labelledby="page-title">
+            <p class="eyebrow">Release notes</p>
+            <h1 id="page-title">Changelog</h1>
+            <p class="lede">A record of notable improvements to the Excel add-in, browser app, offline support, and documentation.</p>
+        </section>
+        <div class="tutorial-layout">
+            <nav class="tutorial-nav" aria-label="Changelog contents">
+                <p>Releases</p>
+                <a href="#current">Current</a>
+                <a href="#previous">Previous work</a>
+            </nav>
+            <article class="tutorial-content changelog">
+                <section id="current">
+                    <p class="eyebrow">3 September 2026</p>
+                    <h2>Web, Excel, and documentation improvements</h2>
+                    <h3>Added</h3>
+                    <ul>
+                        <li>Separate, step-by-step tutorials for the Excel add-in and web app.</li>
+                        <li>A documentation hub and this changelog page, available in the deployed site and offline cache.</li>
+                        <li>Progressive web app metadata, valid installation icons, and desktop installation support for the HTTPS-hosted web app.</li>
+                    </ul>
+                    <h3>Changed</h3>
+                    <ul>
+                        <li>The Excel worksheet selector now follows the worksheet activated by the user.</li>
+                        <li>The embedded chart panel in the web app now follows the active sheet tab, including blank sheets.</li>
+                        <li>Workbook saving is deferred until the browser is idle, trailing blank rows are omitted from stored data, and oversized cached workbooks are not retained.</li>
+                    </ul>
+                    <h3>Fixed</h3>
+                    <ul>
+                        <li>Corrected progressive web app (PWA) manifest icon references so browsers can recognize the hosted app as installable.</li>
+                        <li>Updated service-worker cache versions when offline app-shell content changed.</li>
+                    </ul>
+                </section>
+            </article>
+        </div>
+    </main>
+    <footer><span>Excel Control Charts</span><a href="./docs.html">Documentation home</a><a href="./docs-excel.html">Excel tutorial</a><a href="./docs-web.html">Web app tutorial</a><a href="https://github.com/AUS-DOH-Safety-and-Quality/ExcelControlCharts">Project source</a></footer>
+</body>
+</html>

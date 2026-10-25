@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Web App Tutorial | Excel Control Charts</title>
+    <meta name="description" content="Step-by-step tutorial for the Excel Control Charts web app." />
+    <link rel="icon" href="../../assets/spc_excel_add_in_logo_64_64.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#1d5d7b" />
+    <link href="docs.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="./" aria-label="Open Control Charts"><img src="../../assets/spc_excel_add_in_logo_128_128.png" width="42" height="42" alt="" /><span>Control Charts</span></a>
+        <a class="open-app" href="./">Open web app</a>
+    </header>
+    <main>
+        <section class="intro" aria-labelledby="page-title">
+            <p class="eyebrow">Tutorial 2 of 2</p>
+            <h1 id="page-title">Web app tutorial</h1>
+            <p class="lede">Create charts without Excel by working with data directly in your browser, then export the result as SVG or PNG.</p>
+        </section>
+        <div class="tutorial-layout">
+            <nav class="tutorial-nav" aria-label="Web tutorial contents">
+                <p>On this page</p>
+                <a href="#start">Start data</a><a href="#sheets">Manage sheets</a><a href="#fields">Select fields</a><a href="#export">Export</a><a href="#offline">Offline use</a>
+            </nav>
+            <article class="tutorial-content">
+                <section id="start"><p class="eyebrow">Step 1</p><h2>Start with data</h2><p>Open the <a href="./">web app</a>. It opens with sample SPC data. To use your own data, choose <strong>Open CSV</strong> and select a CSV, TSV, or text file, or paste a tabular block copied from Excel directly into the grid.</p><div class="note"><strong>Grid structure:</strong> row 1 holds the column names. Add at least one named column and one data row before the sheet becomes available to the chart panel.</div></section>
+                <section id="sheets"><p class="eyebrow">Step 2</p><h2>Manage sheets and data</h2><p>Each imported file becomes a sheet. Select a sheet tab to edit it; use the <strong>+</strong> tab to add a blank sheet and double-click a sheet tab to rename it. Use <strong>+ 20 rows</strong> and <strong>+ Column</strong> when the grid needs more space.</p><p>Edits update the chart preview automatically. The current workbook is stored locally by the browser so it is available the next time you open the app on the same device and browser.</p></section>
+                <section id="fields"><p class="eyebrow">Step 3</p><h2>Select chart fields and settings</h2><ol class="steps"><li><div><strong>Choose a worksheet.</strong> The chart panel follows the active sheet tab.</div></li><li><div><strong>Choose the table.</strong> Each populated sheet is exposed as one table.</div></li><li><div><strong>Choose category and numerator columns.</strong> These fields are required.</div></li><li><div><strong>Select a chart type.</strong> Choose SPC or Funnel and adjust settings in the panel.</div></li></ol><p>The chart appears in the centre panel and updates while you edit the grid or modify chart settings.</p></section>
+                <section id="export"><p class="eyebrow">Step 4</p><h2>Export a chart</h2><p>Select <strong>SVG</strong> to download a scalable vector image, ideal for reports and editing in graphics software. Select <strong>PNG</strong> to download a bitmap image for slides, documents, or email. Exported files are created locally in your browser.</p></section>
+                <section id="offline"><p class="eyebrow">Step 5</p><h2>Install and work offline</h2><p>Visit the HTTPS-hosted web app once, then use the browser's <strong>Install app</strong> option in Chrome or Edge, or <strong>Add to Dock</strong> in macOS Safari. The installed app and these tutorials are cached for offline access.</p><div class="note"><strong>Privacy:</strong> imported data, workbook storage, calculation, and chart rendering all remain in the browser. The web app has no application API or database and does not send worksheet data to a server.</div></section>
+            </article>
+        </div>
+    </main>
+    <footer><span>Excel Control Charts</span><a href="./docs.html">Documentation home</a><a href="./docs-excel.html">Excel tutorial</a><a href="./changelog.html">Changelog</a><a href="https://github.com/AUS-DOH-Safety-and-Quality/ExcelControlCharts">Project source</a></footer>
+</body>
+</html>

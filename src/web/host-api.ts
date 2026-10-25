@@ -7,6 +7,8 @@ export interface WorkbookHost {
   listWorksheets(): string[];
   getActiveWorksheet(): string;
   onWorksheetActivated(handler: () => void): void;
+  getChartSettings(): { settings: unknown; fileName: string | null };
+  saveChartSettings(settings: unknown, fileName: string | null): void;
   listTables(worksheet: string): string[];
   listColumns(worksheet: string, table: string): string[];
   /** Column values shaped like an Excel data-body range: one row per entry. */
@@ -15,6 +17,20 @@ export interface WorkbookHost {
   addImage(worksheet: string, svg: string): void;
   /** Element in the hosting page that the chart is rendered into. */
   getChartHost(): HTMLElement;
+  /** Creates a worksheet containing the data currently represented by the chart. */
+  addChartData(
+    chartType: string,
+    sourceWorksheet: string,
+    headers: string[],
+    values: Array<Array<string | number | boolean>>
+  ): string;
+  /** Downloads the data currently represented by the chart as a CSV file. */
+  exportChartData(
+    chartType: string,
+    sourceWorksheet: string,
+    headers: string[],
+    values: Array<Array<string | number | boolean>>
+  ): void;
 }
 
 declare global {
@@ -26,5 +42,7 @@ declare global {
     __isChartPreviewReady?: () => boolean;
     /** Installed by taskpane.ts: re-renders the preview into its (possibly re-parented) container. */
     __renderChartPreview?: () => void;
+    /** Installed by the embedded taskpane to clear the hosting page's rendered state. */
+    __clearChartPreview?: () => void;
   }
 }

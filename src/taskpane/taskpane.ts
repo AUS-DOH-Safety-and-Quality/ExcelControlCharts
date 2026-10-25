@@ -4,6 +4,7 @@ import { makeConstructorArgs, makeUpdateValues } from "../utilities/previewDataU
 import { renderSpcDataSettings } from "../utilities/renderSpcDataSettings";
 import { patchSpcVisualSettingsForTaskpane } from "../utilities/spcVisualSettingsCompat";
 import { attachFieldInfo } from "../utilities/uiFields";
+import { isLocalStorageEnabled, setLocalStorageEnabled } from "../utilities/localStoragePreference";
 import dateSettingsToFormatOptions from "../PowerBI-SPC/src/Functions/dateSettingsToFormatOptions";
 import formatDateParts from "../PowerBI-SPC/src/Functions/formatDateParts";
 import { Visual as spcVisualClass } from "../PowerBI-SPC/src/visual";
@@ -18,6 +19,7 @@ import {
 } from "../PowerBI-Funnels/src/settings";
 
 const spcDiv = document.createElement("div");
+let chartPreviewGeneration = 0;
 spcDiv.className = "spc-container";
 spcDiv.setAttribute("hidden", "true");
 
@@ -25,8 +27,26 @@ const funnelDiv = document.createElement("div");
 funnelDiv.className = "funnel-container";
 funnelDiv.setAttribute("hidden", "true");
 
-const spcVisual = new spcVisualClass(makeConstructorArgs(spcDiv));
-patchSpcVisualSettingsForTaskpane(spcVisual);
+let splitIndexesStorage = "[]";
+let previewRenderInProgress = false;
+let previewRenderQueued = false;
+function createSpcPreviewVisual(): spcVisualClass {
+  spcDiv.replaceChildren();
+  const visual = new spcVisualClass(makeConstructorArgs(spcDiv, (properties) => {
+  const splitIndexes = properties.replace?.find(
+    (entry) => entry.objectName === "split_indexes_storage"
+  )?.properties?.split_indexes;
+  if (typeof splitIndexes === "string") {
+    splitIndexesStorage = splitIndexes;
+    spcVisual = createSpcPreviewVisual();
+    queuePreviewRender();
+  }
+}));
+  patchSpcVisualSettingsForTaskpane(visual);
+  return visual;
+}
+
+let spcVisual = createSpcPreviewVisual();
 const funnelVisual = new funnelVisualClass(makeConstructorArgs(funnelDiv));
 
 const spcInputSettings = structuredClone(spcDefaultSettings) as spcDefaultSettingsType;
@@ -77,6 +97,21 @@ type RawDataRow = {
 type ThemeMode = "light" | "dark";
 type ChartFamily = "spc" | "funnel";
 
+type ChartSettingsPreset = {
+  version: 2;
+  chartFamily: ChartFamily;
+  userOptions: Record<string, string>;
+};
+
+type WorksheetChartSettings = Partial<Record<ChartFamily, ChartSettingsPreset>> & {
+  lastChartFamily?: ChartFamily;
+};
+
+type WorkbookChartSettings = {
+  version: 5;
+  worksheets: Record<string, WorksheetChartSettings>;
+};
+
 type SpcDateRangeFilterState = {
   availableDates: Date[];
   startIndex: number;
@@ -85,6 +120,11 @@ type SpcDateRangeFilterState = {
 };
 
 const themeStorageKey = "excel-control-charts-theme";
+const legacyChartSettingsKey = "__workbook__";
+const workbookChartSettingsKey = "excel-control-charts-settings-v1";
+const workbookChartSettingsFileNameKey = "excel-control-charts-settings-file-name-v1";
+let sessionChartSettings: WorkbookChartSettings = { version: 5, worksheets: {} };
+let loadedChartSettingsFileName: string | null = null;
 const spcDateRangeFilterState: SpcDateRangeFilterState = {
   availableDates: [],
   startIndex: 0,
@@ -132,6 +172,18 @@ function attachStaticFieldHelpText() {
       'label[for="setting-show-date-range"]',
       "Show or hide the formatted SPC date range beneath the chart title.",
     ],
+    [
+      'label[for="add-chart-data"]',
+      "Add the calculated chart values and limits beside the source table.",
+    ],
+    [
+      'label[for="save-chart-settings"]',
+      "Save chart settings to a JSON config file. A config can include presets for multiple worksheets.",
+    ],
+    [
+      'label[for="local-storage-toggle"]',
+      "Local storage saves preferences on this device only. Nothing is sent to or stored on a server.",
+    ],
   ];
 
   helpItems.forEach(([selector, helpText]) => {
@@ -143,6 +195,9 @@ function attachStaticFieldHelpText() {
 }
 
 function getStoredTheme(): ThemeMode | null {
+  if (!isLocalStorageEnabled()) {
+    return null;
+  }
   try {
     const value = window.localStorage.getItem(themeStorageKey);
     return value === "light" || value === "dark" ? value : null;
@@ -171,10 +226,12 @@ function applyTheme(theme: ThemeMode) {
     label.textContent = isDark ? "Light mode" : "Dark mode";
   }
 
-  try {
-    window.localStorage.setItem(themeStorageKey, theme);
-  } catch {
-    // Ignore storage failures and keep the in-memory theme.
+  if (isLocalStorageEnabled()) {
+    try {
+      window.localStorage.setItem(themeStorageKey, theme);
+    } catch {
+      // Ignore storage failures and keep the in-memory theme.
+    }
   }
 }
 
@@ -1008,6 +1065,367 @@ function updateCurrentChartInputSettingsFromUi(
   }
 }
 
+function getSelectValue(id: string): string {
+  return (document.getElementById(id) as HTMLSelectElement | HTMLInputElement | null)?.value ?? "";
+}
+
+function setSelectValue(id: string, value: string): void {
+  const element = document.getElementById(id) as HTMLSelectElement | HTMLInputElement | null;
+  if (element && Array.from((element as HTMLSelectElement).options ?? []).some((option) => option.value === value)) {
+    element.value = value;
+  }
+}
+
+const savedControlSelector = [
+  "#worksheet-selector",
+  "#table-selector",
+  "#category-selector",
+  "#numerator-selector",
+  "#denominator-selector",
+  "#sd-selector",
+  "#setting-chart-title",
+  "#setting-title-size",
+  "#setting-title-color",
+  "#setting-show-date-range",
+  "#spc-data-settings-grid input",
+  "#spc-data-settings-grid select",
+  "#spc-nhs-settings-grid input",
+  "#spc-nhs-settings-grid select",
+  "#spc-date-settings-grid input",
+  "#spc-date-settings-grid select",
+].join(", ");
+
+function captureChartSettingsPreset(): ChartSettingsPreset {
+  const userOptions = Object.fromEntries(
+    Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement>(savedControlSelector))
+      .filter((control) => control.id)
+      .map((control) => [control.id, control.value])
+  );
+  return {
+    version: 2,
+    chartFamily: getSelectedChartFamily(),
+    userOptions,
+  };
+}
+
+function isChartSettingsPreset(value: unknown): value is ChartSettingsPreset {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const preset = value as Partial<ChartSettingsPreset>;
+  return (
+    preset.version === 2 &&
+    (preset.chartFamily === "spc" || preset.chartFamily === "funnel") &&
+    !!preset.userOptions &&
+    typeof preset.userOptions === "object" &&
+    Object.values(preset.userOptions).every((option) => typeof option === "string")
+  );
+}
+
+function normalizeWorkbookChartSettings(value: unknown): WorkbookChartSettings | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const stored = value as { version?: unknown; worksheets?: unknown };
+  if (
+    (stored.version === 5 || stored.version === 4) &&
+    stored.worksheets &&
+    typeof stored.worksheets === "object"
+  ) {
+    const worksheets = Object.fromEntries(
+      Object.entries(stored.worksheets).map(([worksheet, rawSettings]) => {
+        const familySettings: WorksheetChartSettings = {};
+        if (rawSettings && typeof rawSettings === "object") {
+          const settings = rawSettings as Record<string, unknown>;
+          for (const family of ["spc", "funnel"] as const) {
+            const preset = settings[family];
+            if (isChartSettingsPreset(preset) && preset.chartFamily === family) {
+              familySettings[family] = preset;
+            }
+          }
+          if (settings.lastChartFamily === "spc" || settings.lastChartFamily === "funnel") {
+            familySettings.lastChartFamily = settings.lastChartFamily;
+          }
+        }
+        familySettings.lastChartFamily ??= familySettings.spc ? "spc" : familySettings.funnel ? "funnel" : undefined;
+        return [worksheet, familySettings];
+      })
+    );
+    return { version: 5, worksheets };
+  }
+  if (stored.version === 3 && stored.worksheets && typeof stored.worksheets === "object") {
+    const worksheets = Object.fromEntries(
+      Object.entries(stored.worksheets)
+        .filter((entry): entry is [string, ChartSettingsPreset] => isChartSettingsPreset(entry[1]))
+        .map(([worksheet, preset]) => [
+          worksheet,
+          { [preset.chartFamily]: preset, lastChartFamily: preset.chartFamily },
+        ])
+    );
+    return { version: 5, worksheets };
+  }
+  if (isChartSettingsPreset(value)) {
+    const worksheet = value.userOptions["worksheet-selector"] || legacyChartSettingsKey;
+    return {
+      version: 5,
+      worksheets: {
+        [worksheet]: { [value.chartFamily]: value, lastChartFamily: value.chartFamily },
+      },
+    };
+  }
+  return null;
+}
+
+function restoreDocumentChartSettings(): void {
+  try {
+    const documentSettings = Office.context?.document?.settings;
+    if (!documentSettings) {
+      const browserSettings = getBrowserWorkbookHost()?.getChartSettings?.();
+      sessionChartSettings =
+        normalizeWorkbookChartSettings(browserSettings?.settings) ?? { version: 5, worksheets: {} };
+      loadedChartSettingsFileName = browserSettings?.fileName ?? null;
+      updateLoadedChartSettingsFileName();
+      return;
+    }
+    const storedSettings = documentSettings.get(workbookChartSettingsKey);
+    sessionChartSettings =
+      normalizeWorkbookChartSettings(storedSettings) ?? { version: 5, worksheets: {} };
+    const storedFileName = documentSettings.get(workbookChartSettingsFileNameKey);
+    loadedChartSettingsFileName = typeof storedFileName === "string" ? storedFileName : null;
+  } catch {
+    sessionChartSettings = { version: 5, worksheets: {} };
+    loadedChartSettingsFileName = null;
+  }
+  updateLoadedChartSettingsFileName();
+}
+
+async function persistDocumentChartSettings(): Promise<void> {
+  const settings = Office.context?.document?.settings;
+  if (!settings) {
+    getBrowserWorkbookHost()?.saveChartSettings?.(sessionChartSettings, loadedChartSettingsFileName);
+    return;
+  }
+
+  settings.set(workbookChartSettingsKey, sessionChartSettings);
+  settings.set(workbookChartSettingsFileNameKey, loadedChartSettingsFileName);
+  await new Promise<void>((resolve, reject) => {
+    settings.saveAsync((result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        resolve();
+      } else {
+        reject(new Error(result.error.message || "Unable to save settings in this workbook."));
+      }
+    });
+  });
+}
+
+type BrowserWorkbookHost = {
+  getChartSettings?: () => { settings: unknown; fileName: string | null };
+  saveChartSettings?: (settings: unknown, fileName: string | null) => void;
+  addChartData?: (
+    chartType: string,
+    sourceWorksheet: string,
+    headers: string[],
+    values: Array<Array<string | number | boolean>>
+  ) => string;
+  exportChartData?: (
+    chartType: string,
+    sourceWorksheet: string,
+    headers: string[],
+    values: Array<Array<string | number | boolean>>
+  ) => void;
+};
+
+function getBrowserWorkbookHost(): BrowserWorkbookHost | null {
+  const parentHost = (window.parent as any)?.__excelHost as BrowserWorkbookHost | undefined;
+  const currentHost = (window as any).__excelHost as BrowserWorkbookHost | undefined;
+  const host = parentHost ?? currentHost;
+  return host && (host.addChartData || host.exportChartData) ? host : null;
+}
+
+async function saveChartSettingsPreset(
+  worksheet = getSelectValue("worksheet-selector") || legacyChartSettingsKey,
+  family: ChartFamily = getSelectedChartFamily()
+): Promise<void> {
+  const worksheetSettings = (sessionChartSettings.worksheets[worksheet] ??= {});
+  worksheetSettings[family] = { ...captureChartSettingsPreset(), chartFamily: family };
+  worksheetSettings.lastChartFamily = family;
+  await persistDocumentChartSettings();
+  updateLoadedChartSettingsFileName();
+}
+
+function saveBrowserChartSettings(): void {
+  if (getBrowserWorkbookHost()) {
+    void saveChartSettingsPreset();
+  }
+}
+
+function readChartSettingsPreset(
+  worksheet: string,
+  family: ChartFamily = getSelectedChartFamily()
+): ChartSettingsPreset | null {
+  return (
+    sessionChartSettings.worksheets[worksheet]?.[family] ??
+    sessionChartSettings.worksheets[legacyChartSettingsKey]?.[family] ??
+    null
+  );
+}
+
+function setChartSettingsStatus(message: string, isError = false): void {
+  const status = document.getElementById("chart-settings-status");
+  if (status) {
+    status.textContent = message;
+    status.classList.toggle("is-error", isError);
+  }
+}
+
+function updateLoadedChartSettingsFileName(): void {
+  const fileName = document.getElementById("chart-settings-file-name");
+  if (fileName) {
+    const hasSavedSettings = Object.values(sessionChartSettings.worksheets).some(
+      (worksheetSettings) => worksheetSettings.spc || worksheetSettings.funnel
+    );
+    fileName.textContent = loadedChartSettingsFileName
+      ? `Loaded config: ${loadedChartSettingsFileName}`
+      : hasSavedSettings
+        ? "Settings loaded from this workbook"
+        : "No saved chart settings";
+  }
+}
+
+async function exportChartSettingsJson(): Promise<void> {
+  const nameInput = document.getElementById("chart-settings-name") as HTMLInputElement | null;
+  const enteredName = nameInput?.value.trim() ?? "";
+  const baseName = enteredName.replace(/\.json$/i, "");
+  if (!baseName) {
+    setChartSettingsStatus("Enter a name for the settings file before saving.", true);
+    nameInput?.focus();
+    return;
+  }
+  if (/[<>:"/\\|?*\u0000-\u001f]/.test(baseName) || /[. ]$/.test(baseName)) {
+    setChartSettingsStatus("Use a file name without reserved characters or a trailing dot/space.", true);
+    nameInput?.focus();
+    return;
+  }
+
+  await saveChartSettingsPreset();
+
+  const blob = new Blob([JSON.stringify(sessionChartSettings, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${baseName}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  setChartSettingsStatus("Settings exported as JSON.");
+}
+
+async function importChartSettingsJson(file: File): Promise<void> {
+  let imported: WorkbookChartSettings | null;
+  try {
+    imported = normalizeWorkbookChartSettings(JSON.parse(await file.text()));
+  } catch {
+    throw new Error("The selected file is not valid JSON.");
+  }
+  if (!imported || Object.keys(imported.worksheets).length === 0) {
+    throw new Error("The selected file does not contain supported chart settings.");
+  }
+
+  loadedChartSettingsFileName = file.webkitRelativePath || file.name;
+  updateLoadedChartSettingsFileName();
+  const worksheet = getSelectValue("worksheet-selector") || legacyChartSettingsKey;
+  for (const [importedWorksheet, familyPresets] of Object.entries(imported.worksheets)) {
+    const worksheetSettings = (sessionChartSettings.worksheets[importedWorksheet] ??= {});
+    Object.assign(worksheetSettings, familyPresets);
+  }
+
+  let worksheetSettings = sessionChartSettings.worksheets[worksheet];
+  if (!worksheetSettings && Object.keys(imported.worksheets).length === 1) {
+    const sourceSettings = Object.values(imported.worksheets)[0];
+    worksheetSettings = {};
+    for (const [family, sourcePreset] of Object.entries(sourceSettings) as Array<
+      [ChartFamily, ChartSettingsPreset]
+    >) {
+      worksheetSettings[family] = {
+        ...sourcePreset,
+        userOptions: { ...sourcePreset.userOptions, "worksheet-selector": worksheet },
+      };
+    }
+    sessionChartSettings.worksheets[worksheet] = worksheetSettings;
+  }
+  const preset =
+    worksheetSettings?.[getSelectedChartFamily()] ??
+    (worksheetSettings ? Object.values(worksheetSettings)[0] : undefined);
+  await persistDocumentChartSettings();
+  if (preset) {
+    await loadChartSettingsPreset(preset);
+    setChartSettingsStatus("Settings imported and loaded.");
+  } else {
+    setChartSettingsStatus("Settings imported. Select a worksheet with a matching preset to load it.");
+  }
+}
+
+function bindRestoredSettingsControls(): void {
+  document
+    .querySelectorAll<HTMLInputElement | HTMLSelectElement>("#spc-data-settings-grid input, #spc-data-settings-grid select, #spc-nhs-settings-grid input, #spc-nhs-settings-grid select, #spc-date-settings-grid input, #spc-date-settings-grid select")
+    .forEach((control) => {
+      control.addEventListener("change", () => {
+        if (hasRequiredChartFields()) {
+          tryCatch(previewPlot);
+        }
+      });
+    });
+}
+
+async function loadChartSettingsPreset(preset?: ChartSettingsPreset): Promise<void> {
+  const worksheet = getSelectValue("worksheet-selector");
+  preset ??= readChartSettingsPreset(worksheet || legacyChartSettingsKey);
+  if (!preset) {
+    throw new Error(`No saved chart settings were found for worksheet "${worksheet}".`);
+  }
+
+  Object.assign(spcInputSettings, structuredClone(spcDefaultSettings));
+  Object.assign(funnelInputSettings, structuredClone(funnelDefaultSettings));
+  splitIndexesStorage = "[]";
+
+  const chartTypeHidden = document.getElementById("controlchart-selector") as HTMLInputElement;
+  chartTypeHidden.value = preset.chartFamily;
+  const isSpc = preset.chartFamily === "spc";
+  document.getElementById("toggle-spc")?.classList.toggle("is-active", isSpc);
+  document.getElementById("toggle-funnel")?.classList.toggle("is-active", !isSpc);
+  renderSpcDataSettings(preset.chartFamily, spcInputSettings, funnelInputSettings);
+  bindRestoredSettingsControls();
+  updateDateRangeSettingVisibility(preset.chartFamily);
+  updateSdSelectorVisibility();
+  updateDenominatorSelectorVisibility();
+
+  await updateWorksheetSelector();
+  setSelectValue("worksheet-selector", preset.userOptions["worksheet-selector"] ?? "");
+  await updateTableSelector();
+  setSelectValue("table-selector", preset.userOptions["table-selector"] ?? "");
+  await updateColumnSelectors();
+  for (const [id, value] of Object.entries(preset.userOptions)) {
+    const control = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
+    if (!control) {
+      continue;
+    }
+    if (control instanceof HTMLSelectElement) {
+      setSelectValue(id, value);
+    } else {
+      control.value = value;
+    }
+  }
+  updateCurrentChartInputSettingsFromUi(preset.chartFamily);
+  await updateSpcDateRangeFilterControls();
+  updateActionButtonsEnabledState();
+
+  if (hasRequiredChartFields()) {
+    await previewPlot();
+  }
+}
+
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
     applyTheme(getPreferredTheme());
@@ -1019,6 +1437,82 @@ Office.onReady((info) => {
     document.getElementById("app-body")!.style.display = "flex";
 
     document.getElementById("create-plot")!.onclick = () => tryCatch(createPlot);
+    document.getElementById("add-chart-data")!.onclick = async () => {
+      try {
+        await addChartDataToWorkbook();
+      } catch (error) {
+        console.error(error);
+        const detail =
+          error instanceof Error ? error.message : "An unexpected error occurred.";
+        setAddChartDataStatus(`Unable to add chart data: ${detail}`, "error");
+      }
+    };
+    document.getElementById("export-chart-data")?.addEventListener("click", async () => {
+      try {
+        await exportChartDataFromWeb();
+      } catch (error) {
+        console.error(error);
+        const detail = error instanceof Error ? error.message : "An unexpected error occurred.";
+        setAddChartDataStatus(`Unable to export chart data: ${detail}`, "error");
+      }
+    });
+    const importSettingsInput = document.getElementById(
+      "import-chart-settings-file"
+    ) as HTMLInputElement | null;
+    const settingsNameInput = document.getElementById(
+      "chart-settings-name"
+    ) as HTMLInputElement | null;
+    const saveSettingsButton = document.getElementById(
+      "save-chart-settings"
+    ) as HTMLButtonElement | null;
+    if (settingsNameInput && saveSettingsButton) {
+      saveSettingsButton.disabled = !settingsNameInput.value.trim();
+      settingsNameInput.addEventListener("input", () => {
+        saveSettingsButton.disabled = !settingsNameInput.value.trim();
+        if (settingsNameInput.value.trim()) {
+          setChartSettingsStatus("");
+        }
+      });
+    }
+    document.getElementById("save-chart-settings")?.addEventListener("click", () =>
+      tryCatch(exportChartSettingsJson)
+    );
+    document.getElementById("load-chart-settings")?.addEventListener("click", () => {
+      importSettingsInput?.click();
+    });
+    importSettingsInput?.addEventListener("change", async () => {
+      const file = importSettingsInput.files?.[0];
+      if (!file) {
+        return;
+      }
+      try {
+        await importChartSettingsJson(file);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "Unable to import settings.";
+        setChartSettingsStatus(detail, true);
+        console.error(error);
+      } finally {
+        importSettingsInput.value = "";
+      }
+    });
+    const localStorageToggle = document.getElementById(
+      "local-storage-toggle"
+    ) as HTMLInputElement | null;
+    if (localStorageToggle) {
+      localStorageToggle.checked = isLocalStorageEnabled();
+      localStorageToggle.onchange = () => {
+        setLocalStorageEnabled(localStorageToggle.checked);
+        window.parent?.postMessage(
+          { type: "excel-control-charts:local-storage", enabled: localStorageToggle.checked },
+          "*"
+        );
+      };
+    }
+    window.addEventListener("message", (event) => {
+      if (localStorageToggle && event.data?.type === "excel-control-charts:local-storage") {
+        localStorageToggle.checked = event.data.enabled === true;
+      }
+    });
 
     // Move our rendering containers inside the preview area
     const previewHost = document.getElementById("preview-container");
@@ -1053,7 +1547,18 @@ Office.onReady((info) => {
     const sdSel = document.getElementById("sd-selector") as HTMLSelectElement | null;
 
     worksheetSel.onchange = () => {
-      tryCatch(updateWorksheetDependentSelectors);
+      tryCatch(async () => {
+        await updateWorksheetDependentSelectors();
+        const family =
+          sessionChartSettings.worksheets[worksheetSel.value]?.lastChartFamily ??
+          getSelectedChartFamily();
+        const preset = readChartSettingsPreset(worksheetSel.value, family);
+        if (preset) {
+          await loadChartSettingsPreset(preset);
+        } else {
+          saveBrowserChartSettings();
+        }
+      });
     };
     tableSel.onchange = () => {
       tryCatch(async () => {
@@ -1065,6 +1570,7 @@ Office.onReady((info) => {
           clearColumnSelectors();
         }
         updateActionButtonsEnabledState();
+        saveBrowserChartSettings();
       });
     };
     catSel.onchange = () => {
@@ -1229,6 +1735,11 @@ Office.onReady((info) => {
 
       if (document.getElementById("spc-chart-type")) {
         updateCurrentChartInputSettingsFromUi(currentChartFamily);
+        if (currentChartFamily !== value) {
+          const worksheet = getSelectValue("worksheet-selector") || legacyChartSettingsKey;
+          const worksheetSettings = (sessionChartSettings.worksheets[worksheet] ??= {});
+          worksheetSettings[currentChartFamily] = captureChartSettingsPreset();
+        }
       }
 
       clearPreviewOnChartTypeSwitch();
@@ -1253,8 +1764,20 @@ Office.onReady((info) => {
       updateDenominatorSelectorVisibility();
       updateActionButtonsEnabledState();
     }
-    toggleSpc?.addEventListener("click", () => setChartType("spc"));
-    toggleFunnel?.addEventListener("click", () => setChartType("funnel"));
+    async function activateChartFamily(family: ChartFamily): Promise<void> {
+      setChartType(family);
+      const worksheet = getSelectValue("worksheet-selector") || legacyChartSettingsKey;
+      const preset = readChartSettingsPreset(worksheet, family);
+      if (preset) {
+        await loadChartSettingsPreset(preset);
+      } else {
+        saveBrowserChartSettings();
+      }
+    }
+    toggleSpc?.addEventListener("click", () => tryCatch(() => activateChartFamily("spc")));
+    toggleFunnel?.addEventListener("click", () =>
+      tryCatch(() => activateChartFamily("funnel"))
+    );
     themeToggle?.addEventListener("click", toggleTheme);
 
     // Live preview update on title input (debounced)
@@ -1266,6 +1789,7 @@ Office.onReady((info) => {
         if (hasRequiredChartFields()) {
           tryCatch(previewPlot);
         }
+        saveBrowserChartSettings();
       }, 250);
     }
     chartTitleInput?.addEventListener("input", queuePreviewRefresh);
@@ -1308,6 +1832,7 @@ Office.onReady((info) => {
 
     // Initial population of worksheet selector, then tables/columns
     tryCatch(async () => {
+      restoreDocumentChartSettings();
       await Excel.run(async (context) => {
         const onActivated = context.workbook.worksheets.onActivated;
         if (!onActivated) {
@@ -1315,31 +1840,63 @@ Office.onReady((info) => {
         }
         onActivated.add(() => {
           tryCatch(async () => {
-            await updateWorksheetSelector();
-            await updateWorksheetDependentSelectors();
+            clearChartPreview();
+            await updateWorksheetSelector(true);
+            const activeWorksheet = getSelectValue("worksheet-selector");
+            const family =
+              sessionChartSettings.worksheets[activeWorksheet]?.lastChartFamily ??
+              getSelectedChartFamily();
+            const preset = readChartSettingsPreset(activeWorksheet, family);
+            if (preset) {
+              await loadChartSettingsPreset(preset);
+            } else {
+              await updateWorksheetDependentSelectors();
+              if (hasRequiredChartFields()) {
+                await previewPlot();
+              }
+            }
           });
         });
         await context.sync();
       });
       await updateWorksheetSelector();
-      await updateWorksheetDependentSelectors();
+      const selectedWorksheet = getSelectValue("worksheet-selector");
+      const family =
+        sessionChartSettings.worksheets[selectedWorksheet]?.lastChartFamily ??
+        getSelectedChartFamily();
+      const savedPreset = readChartSettingsPreset(
+        selectedWorksheet || legacyChartSettingsKey,
+        family
+      );
+      if (savedPreset) {
+        await loadChartSettingsPreset(savedPreset);
+      } else {
+        await updateWorksheetDependentSelectors();
+      }
     });
     updateActionButtonsEnabledState();
   }
 });
 
-function clearColumnSelectors() {
-
-  async function updateWorksheetDependentSelectors() {
-    await updateTableSelector();
-    const nextTable = (document.getElementById("table-selector") as HTMLSelectElement | null)?.value;
-    if (nextTable) {
-      await updateColumnSelectors();
-    } else {
-      clearColumnSelectors();
-    }
-    updateActionButtonsEnabledState();
+async function updateWorksheetDependentSelectors() {
+  await updateTableSelector();
+  const nextTable = (document.getElementById("table-selector") as HTMLSelectElement | null)?.value;
+  if (nextTable) {
+    await updateColumnSelectors();
+  } else {
+    clearColumnSelectors();
   }
+  updateActionButtonsEnabledState();
+}
+
+function clearChartPreview(): void {
+  chartPreviewGeneration += 1;
+  spcDiv.setAttribute("hidden", "true");
+  funnelDiv.setAttribute("hidden", "true");
+  window.__clearChartPreview?.();
+}
+
+function clearColumnSelectors() {
   const categorySelector = document.getElementById("category-selector") as HTMLSelectElement | null;
   const numeratorSelector = document.getElementById(
     "numerator-selector"
@@ -1412,13 +1969,14 @@ async function updateTableSelector() {
   });
 }
 
-async function updateWorksheetSelector() {
+async function updateWorksheetSelector(preferActiveWorksheet = false) {
   await Excel.run(async (context) => {
     const worksheets = context.workbook.worksheets.load("items/name");
     const activeWorksheet = context.workbook.worksheets.getActiveWorksheet().load("name");
     await context.sync();
 
     const worksheetSelector = document.getElementById("worksheet-selector") as HTMLSelectElement;
+  const currentWorksheetName = worksheetSelector.value;
     worksheetSelector.innerHTML = '<option value="" disabled selected>Select a worksheet</option>';
 
     worksheets.items.forEach((ws) => {
@@ -1428,10 +1986,14 @@ async function updateWorksheetSelector() {
       worksheetSelector.appendChild(option);
     });
 
-    // Default to active worksheet if present
     const activeName = activeWorksheet.name;
+    const currentExists = worksheets.items.some((ws) => ws.name === currentWorksheetName);
     const activeExists = worksheets.items.some((ws) => ws.name === activeName);
-    if (activeExists) {
+    if (preferActiveWorksheet && activeExists) {
+      worksheetSelector.value = activeName;
+    } else if (currentExists) {
+      worksheetSelector.value = currentWorksheetName;
+    } else if (activeExists) {
       worksheetSelector.value = activeName;
     } else if (worksheets.items.length > 0) {
       worksheetSelector.value = worksheets.items[0].name;
@@ -1526,14 +2088,154 @@ function hasRequiredChartFields(): boolean {
 
 function updateActionButtonsEnabledState() {
   const createBtn = document.getElementById("create-plot");
+  const addDataBtn = document.getElementById("add-chart-data");
+  const exportDataBtn = document.getElementById("export-chart-data");
   if (hasRequiredChartFields()) {
     createBtn?.removeAttribute("disabled");
   } else {
     createBtn?.setAttribute("disabled", "true");
   }
+  if (hasRequiredChartFields()) {
+    addDataBtn?.removeAttribute("disabled");
+    exportDataBtn?.removeAttribute("disabled");
+  } else {
+    addDataBtn?.setAttribute("disabled", "true");
+    exportDataBtn?.setAttribute("disabled", "true");
+  }
+}
+
+function setAddChartDataStatus(message: string, state: "success" | "error" = "success") {
+  const status = document.getElementById("add-chart-data-status");
+  if (!status) {
+    return;
+  }
+  status.textContent = message;
+  status.dataset.state = state;
+}
+
+function toExcelCellValue(value: unknown): string | number | boolean {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  return value == null ? "" : String(value);
+}
+
+async function exportChartDataFromWeb() {
+  const browserHost = getBrowserWorkbookHost();
+  if (!browserHost?.exportChartData) {
+    throw new Error("CSV export is only available in the web version.");
+  }
+
+  await previewPlot();
+  const chartFamily = getSelectedChartFamily();
+  const points =
+    chartFamily === "spc"
+      ? (spcVisual.viewModel.plotPoints[0] ?? [])
+      : (funnelVisual.viewModel.plotPoints ?? []);
+  const tooltip = points[0]?.tooltip ?? [];
+  if (tooltip.length === 0 || points.length === 0) {
+    throw new Error("There is no chart data to export.");
+  }
+
+  const headers = tooltip.map((item: any) => item.displayName);
+  const values = points.map((point: any) =>
+    headers.map((header) => {
+      const item = point.tooltip.find((tooltipItem: any) => tooltipItem.displayName === header);
+      return toExcelCellValue(item?.value);
+    })
+  );
+  const sourceWorksheetName = getSelectValue("worksheet-selector");
+  if (!sourceWorksheetName) {
+    throw new Error("Please select the source worksheet.");
+  }
+
+  browserHost.exportChartData(chartFamily, sourceWorksheetName, headers, values);
+  setAddChartDataStatus("Chart data exported as CSV.");
+}
+
+async function addChartDataToWorkbook() {
+  // Render first so the exported rows exactly match the current chart settings and date filter.
+  setAddChartDataStatus("Adding chart data...");
+  await previewPlot();
+
+  const chartFamily = getSelectedChartFamily();
+  const points =
+    chartFamily === "spc"
+      ? (spcVisual.viewModel.plotPoints[0] ?? [])
+      : (funnelVisual.viewModel.plotPoints ?? []);
+  const tooltip = points[0]?.tooltip ?? [];
+  if (tooltip.length === 0 || points.length === 0) {
+    throw new Error("There is no chart data to add to the workbook.");
+  }
+
+  const headers = tooltip.map((item: any) => item.displayName);
+  const values = points.map((point: any) =>
+    headers.map((header) => {
+      const item = point.tooltip.find((tooltipItem: any) => tooltipItem.displayName === header);
+      return toExcelCellValue(item?.value);
+    })
+  );
+  const sourceWorksheetName = (
+    document.getElementById("worksheet-selector") as HTMLSelectElement | null
+  )?.value;
+  if (!sourceWorksheetName) {
+    throw new Error("Please select the source worksheet.");
+  }
+
+  const browserHost = getBrowserWorkbookHost();
+  if (browserHost?.addChartData) {
+    const worksheetName = browserHost.addChartData(chartFamily, sourceWorksheetName, headers, values);
+    setAddChartDataStatus(`Chart data added to ${worksheetName}.`);
+    return;
+  }
+
+  await Excel.run(async (context) => {
+    const tables = context.workbook.tables.load("items/name");
+    const worksheets = context.workbook.worksheets.load("items/name");
+    await context.sync();
+
+    const tableNames = new Set(tables.items.map((table) => table.name.toLowerCase()));
+    const worksheetNames = new Set(
+      worksheets.items.map((worksheet) => worksheet.name.toLowerCase())
+    );
+    const tablePrefix = chartFamily === "spc" ? "SpcChartData" : "FunnelChartData";
+    let tableName = `${tablePrefix}1`;
+    let suffix = 2;
+    while (tableNames.has(tableName.toLowerCase())) {
+      tableName = `${tablePrefix}${suffix}`;
+      suffix += 1;
+    }
+
+    const worksheetNameBase = `${chartFamily}_data_${sourceWorksheetName}`;
+    let worksheetName = worksheetNameBase.slice(0, 31);
+    suffix = 2;
+    while (worksheetNames.has(worksheetName.toLowerCase())) {
+      const suffixText = `_${suffix}`;
+      worksheetName = `${worksheetNameBase.slice(0, 31 - suffixText.length)}${suffixText}`;
+      suffix += 1;
+    }
+
+    const worksheet = context.workbook.worksheets.add(worksheetName);
+    await context.sync();
+
+    const outputRange = worksheet.getRangeByIndexes(0, 0, values.length + 1, headers.length);
+    outputRange.values = [headers.map(toExcelCellValue), ...values];
+    await context.sync();
+
+    outputRange.load("address");
+    await context.sync();
+
+    const outputTable = worksheet.tables.add(outputRange.address, true);
+    outputTable.name = tableName;
+    worksheet.activate();
+    await context.sync();
+  });
+  setAddChartDataStatus("Chart data added to a new worksheet.");
 }
 
 async function createPlot() {
+  let chartWorksheetName = "";
+  let chartFamily: ChartFamily = getSelectedChartFamily();
   await Excel.run(async (context) => {
     const selectedWorksheetName = (
       document.getElementById("worksheet-selector") as HTMLSelectElement | null
@@ -1541,6 +2243,7 @@ async function createPlot() {
     if (!selectedWorksheetName) {
       throw new Error("No worksheet selected");
     }
+    chartWorksheetName = selectedWorksheetName;
     const currentWorksheet = context.workbook.worksheets.getItem(selectedWorksheetName);
     const selectedTableName = (document.getElementById("table-selector") as HTMLSelectElement)
       .value;
@@ -1569,7 +2272,8 @@ async function createPlot() {
       .getDataBodyRange()
       .load("values");
     const controlChartType = (document.getElementById("controlchart-selector") as HTMLInputElement)
-      .value;
+      .value as ChartFamily;
+    chartFamily = controlChartType;
     updateCurrentChartInputSettingsFromUi(controlChartType as ChartFamily);
 
     const denomRequired = isDenominatorRequired();
@@ -1622,7 +2326,10 @@ async function createPlot() {
         filteredRawData,
         controlChartType === "spc" ? spcInputSettings : funnelInputSettings,
         getChartAggregations(controlChartType as ChartFamily),
-        useFormattedDates
+        useFormattedDates,
+        controlChartType === "spc"
+          ? { split_indexes_storage: { split_indexes: splitIndexesStorage } }
+          : {}
       ).dataViews,
       viewport: { width: 640, height: 480 },
       type: 2, //,
@@ -1644,9 +2351,11 @@ async function createPlot() {
 
     await context.sync();
   });
+  await saveChartSettingsPreset(chartWorksheetName, chartFamily);
 }
 
 async function previewPlot() {
+  const renderGeneration = chartPreviewGeneration;
   // Render the chart in the side-pane preview area without inserting into main Excel area
   const selectedWorksheetName = (
     document.getElementById("worksheet-selector") as HTMLSelectElement | null
@@ -1710,6 +2419,9 @@ async function previewPlot() {
       : null;
 
     await context.sync();
+    if (renderGeneration !== chartPreviewGeneration) {
+      return;
+    }
 
     const rawData: RawDataRow[] = categoryColumn.values.flat().map((cat, i) => {
       const row: any = {
@@ -1743,10 +2455,14 @@ async function previewPlot() {
         filteredRawData,
         controlChartType === "spc" ? spcInputSettings : funnelInputSettings,
         getChartAggregations(controlChartType as ChartFamily),
-        useFormattedDates
+        useFormattedDates,
+        controlChartType === "spc"
+          ? { split_indexes_storage: { split_indexes: splitIndexesStorage } }
+          : {}
       ).dataViews,
       viewport: { width, height },
       type: 2,
+      headless: true,
     } as any;
 
     const currDiv = controlChartType === "spc" ? spcDiv : funnelDiv;
@@ -1760,6 +2476,29 @@ async function previewPlot() {
     (currVisual.svg as any).on("mousemove", null).on("mouseleave", null);
     drawChartFrameAndHeader(currVisual, filteredRawData, controlChartType);
   });
+}
+
+function queuePreviewRender(): void {
+  previewRenderQueued = true;
+  if (previewRenderInProgress) {
+    return;
+  }
+
+  void (async () => {
+    previewRenderInProgress = true;
+    try {
+      while (previewRenderQueued) {
+        previewRenderQueued = false;
+        if (hasRequiredChartFields()) {
+          await previewPlot();
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      previewRenderInProgress = false;
+    }
+  })();
 }
 
 // Base64-encodes as UTF-8; plain btoa throws on any character outside Latin-1,

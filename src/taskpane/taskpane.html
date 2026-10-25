@@ -159,6 +159,25 @@
                                 <option value="false">Off</option>
                             </select>
                         </div>
+                        <div class="field">
+                            <label for="add-chart-data">Chart data</label>
+                            <button id="add-chart-data" class="btn" type="button" disabled>Add to workbook</button>
+                            <p id="add-chart-data-status" class="action-status" role="status" aria-live="polite"></p>
+                        </div>
+                        <div class="field">
+                            <label for="chart-settings-name">JSON file name</label>
+                            <input id="chart-settings-name" class="input" type="text" maxlength="100" autocomplete="off" placeholder="e.g. Monthly SPC settings" required />
+                        </div>
+                        <div class="field">
+                            <label for="save-chart-settings">Chart settings</label>
+                            <div class="settings-actions">
+                                <button id="save-chart-settings" class="btn" type="button" disabled>Save JSON</button>
+                                <button id="load-chart-settings" class="btn" type="button">Load JSON</button>
+                            </div>
+                            <input id="import-chart-settings-file" type="file" accept="application/json,.json" hidden />
+                            <p id="chart-settings-status" class="action-status" role="status" aria-live="polite"></p>
+                            <p id="chart-settings-file-name" class="action-status" role="status" aria-live="polite">No JSON config loaded</p>
+                        </div>
                     </div>
 
 

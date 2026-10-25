@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Excel Add-in Tutorial | Excel Control Charts</title>
+    <meta name="description" content="Step-by-step tutorial for the Excel Control Charts add-in." />
+    <link rel="icon" href="../../assets/spc_excel_add_in_logo_64_64.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#1d5d7b" />
+    <link href="docs.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="./" aria-label="Open Control Charts"><img src="../../assets/spc_excel_add_in_logo_128_128.png" width="42" height="42" alt="" /><span>Control Charts</span></a>
+        <a class="open-app" href="./">Open web app</a>
+    </header>
+    <main>
+        <section class="intro" aria-labelledby="page-title">
+            <p class="eyebrow">Tutorial 1 of 2</p>
+            <h1 id="page-title">Excel add-in tutorial</h1>
+            <p class="lede">Use an Excel table to configure a control chart, review it in the preview, and add the completed chart to the worksheet.</p>
+        </section>
+        <div class="tutorial-layout">
+            <nav class="tutorial-nav" aria-label="Excel tutorial contents">
+                <p>On this page</p>
+                <a href="#install">Install</a><a href="#prepare">Prepare data</a><a href="#select">Select fields</a><a href="#configure">Configure chart</a><a href="#create">Create chart</a>
+            </nav>
+            <article class="tutorial-content">
+                <section id="install">
+                    <p class="eyebrow">Step 1</p>
+                    <h2>Install and open the add-in</h2>
+                    <p>
+                        Follow the Windows or macOS command on the project 
+                        <a href="https://github.com/AUS-DOH-Safety-and-Quality/ExcelControlCharts#installing-the-add-in">installation page</a>. Restart Excel when the installation completes. 
+                        Open the workbook that holds your data, then select <strong>Home</strong> and choose <strong>Show Settings Pane</strong>.
+                    </p>
+                    <div class="tutorial-media">
+                        <figure>
+                            <img src="../../assets/tutorial_images/excel/installing_add_in.png" alt="Install and open the add-in" />
+                            <figcaption>Open the installer script to register the add-in with Excel.</figcaption>
+                        </figure>
+                        <figure>
+                            <img src="../../assets/tutorial_images/excel/running_powershell_command.png" alt="Running the PowerShell installation command" />
+                            <figcaption>Run the displayed PowerShell command to complete installation.</figcaption>
+                        </figure>
+                        <figure class="tall-screenshot">
+                            <img src="../../assets/tutorial_images/excel/developer_add_in.png" alt="Open the developer add-in" />
+                            <figcaption>After you have restarted Excel,click on the Add-ins tab. You should be able to see the Excel Control Charts add-in listed there as a developer add-in. Click on it. </figcaption>
+                        </figure>
+                        <figure class="tall-screenshot">
+                            <img src="../../assets/tutorial_images/excel/Excel_add_in_pane.png" alt="Open the developer add-in" />
+                            <figcaption>You should then see the Excel Control Charts add-in pane open, ready for use.</figcaption>
+                        </figure>
+                    </div>
+                </section>
+                <section id="prepare"><p class="eyebrow">Step 2</p><h2>Getting started using the Excel Add in</h2><p>The add-in reads standard Excel tables. Select your data range and use <strong>Insert &gt; Table</strong>, confirming that the first row contains headers.</p><div class="note"><strong>Recommended columns:</strong> use a category column for dates or labels and a numeric numerator column for the count or measurement. Add a denominator column for rate charts. Xbar charts can also use a standard-deviation column.</div></section>
+                <section id="select"><p class="eyebrow">Step 3</p><h2>Select the worksheet and fields</h2><ol class="steps"><li><div><strong>Choose the worksheet.</strong> The selector follows the active Excel worksheet automatically.</div></li><li><div><strong>Choose the table.</strong> Tables available on the selected worksheet appear in the table selector.</div></li><li><div><strong>Choose the category and numerator.</strong> These are required to create a chart.</div></li><li><div><strong>Add optional fields.</strong> Choose a denominator for rate-based SPC charts, or an SD column for Xbar charts.</div></li></ol></section>
+                <section id="configure"><p class="eyebrow">Step 4</p><h2>Configure the chart</h2><p>Choose <strong>SPC</strong> or <strong>Funnel</strong>, then use the settings tab to adjust chart-specific options such as labels, limits, date display, and appearance. The preview updates in the pane as you change data or settings.</p><h3>Split limits on click</h3><p>For an SPC chart, turn on <strong>Split Limits on Click</strong> and click a data point in the interactive taskpane preview. The preview recalculates limits on either side of that point. Click the same preview point again to remove the split.</p><div class="note"><strong>Excel chart limitation:</strong> <strong>Create plot</strong> inserts the chart into Excel as an image. Images cannot respond to data-point clicks, so set any split limits in the taskpane preview before creating the plot.</div><h3>When to use each chart</h3><p>Choose SPC for a time-ordered series and process variation. Choose Funnel for comparing rates or values across groups where differing denominators should be considered.</p></section>
+                <section id="create"><p class="eyebrow">Step 5</p><h2>Create the chart in Excel</h2><p>When the preview is ready, select <strong>Create plot</strong>. The add-in inserts the rendered chart into the selected worksheet as an image. You can move and resize it with Excel's normal picture controls.</p><div class="note"><strong>Need to revise the chart?</strong> Update the table data or settings, then create a new plot. The preview is a working view; creating a plot inserts a snapshot into the worksheet.</div></section>
+            </article>
+        </div>
+    </main>
+    <footer><span>Excel Control Charts</span><a href="./docs.html">Documentation home</a><a href="./docs-web.html">Web app tutorial</a><a href="./changelog.html">Changelog</a><a href="https://github.com/AUS-DOH-Safety-and-Quality/ExcelControlCharts">Project source</a></footer>
+</body>
+</html>

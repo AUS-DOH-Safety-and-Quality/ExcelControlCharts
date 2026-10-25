@@ -26,9 +26,16 @@
         <h1 class="page-title">Control Charts</h1>
         <p class="page-subtitle">SPC and funnel charts in the browser</p>
     </div>
-    <a class="page-link" href="https://github.com/AUS-DOH-Safety-and-Quality/ExcelControlCharts#installing-the-add-in">
-        Install the Excel add-in
-    </a>
+    <nav class="page-links" aria-label="Application links">
+        <a class="page-link" href="https://github.com/AUS-DOH-Safety-and-Quality/ExcelControlCharts#installing-the-add-in">
+            Install the Excel add-in
+        </a>
+    </nav>
+    <div class="storage-control">
+        <label for="local-storage-toggle">Save data on this device</label>
+        <input id="local-storage-toggle" class="storage-switch" type="checkbox" role="switch" aria-describedby="local-storage-info" />
+        <button id="local-storage-info" class="storage-control__info" type="button" title="Local storage saves this app's data, chart settings, and layout only in this browser. Nothing is sent to or stored on a server." aria-label="Local storage saves this app's data, chart settings, and layout only in this browser. Nothing is sent to or stored on a server.">i</button>
+    </div>
 </header>
 
 <main class="page-main">

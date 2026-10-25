@@ -1,5 +1,6 @@
 import { Grid } from "./grid";
 import type { CellValue, WorkbookHost } from "./host-api";
+import { isLocalStorageEnabled, setLocalStorageEnabled } from "../utilities/localStoragePreference";
 import {
   columnValues,
   createSheet,
@@ -43,6 +44,18 @@ const csvInput = element<HTMLInputElement>("open-csv");
 const taskpaneFrame = element<HTMLIFrameElement>("taskpane-frame");
 const resizeWorkbookHandle = element("resize-workbook");
 const resizePanelHandle = element("resize-panel");
+const localStorageToggle = element<HTMLInputElement>("local-storage-toggle");
+
+function storedValue(key: string): string | null {
+  if (!isLocalStorageEnabled()) {
+    return null;
+  }
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
 
 const grid = new Grid(gridContainer, { onChange: persist });
 
@@ -60,11 +73,13 @@ function debounce(callback: () => void, delay: number): () => void {
 
 const scheduleSave = debounce(() => saveWorkbook(workbook), 300);
 
-function persist(): void {
+function persist(refreshChart = true): void {
   scheduleSave();
   renderStatus();
   // Edits to the data should show up in the chart without any further action.
-  taskpaneFrame.contentWindow?.__refreshChart?.();
+  if (refreshChart) {
+    taskpaneFrame.contentWindow?.__refreshChart?.();
+  }
 }
 
 function renderStatus(): void {
@@ -105,7 +120,7 @@ function selectSheet(name: string): void {
   workbook.activeSheet = name;
   renderTabs();
   grid.render(activeSheet());
-  persist();
+  persist(false);
   notifyWorksheetActivated();
 }
 
@@ -173,6 +188,15 @@ const excelHost: WorkbookHost = {
   listWorksheets: () => workbook.sheets.map((sheet) => sheet.name),
   getActiveWorksheet: () => workbook.activeSheet,
   onWorksheetActivated: (handler) => worksheetActivationHandlers.add(handler),
+  getChartSettings: () => ({
+    settings: workbook.chartSettings,
+    fileName: workbook.chartSettingsFileName ?? null,
+  }),
+  saveChartSettings: (settings, fileName) => {
+    workbook.chartSettings = settings;
+    workbook.chartSettingsFileName = fileName;
+    scheduleSave();
+  },
   listTables: (worksheet) => {
     const sheet = getSheet(workbook, worksheet);
     return hasTable(sheet) ? [sheet.tableName] : [];
@@ -181,6 +205,23 @@ const excelHost: WorkbookHost = {
   getColumnValues: (worksheet, _table, column): CellValue[][] =>
     columnValues(getSheet(workbook, worksheet), column),
   getChartHost: () => chartHost,
+  addChartData: (chartType, sourceWorksheet, headers, values) => {
+    const baseName = `${chartType}_data_${sourceWorksheet}`.slice(0, 31);
+    const sheet = createSheet(uniqueSheetName(workbook, baseName));
+    loadRows(sheet, [headers, ...values.map((row) => row.map(String))]);
+    workbook.sheets.push(sheet);
+    selectSheet(sheet.name);
+    return sheet.name;
+  },
+  exportChartData: (chartType, sourceWorksheet, headers, values) => {
+    const escapeCsv = (value: string | number | boolean) =>
+      `"${String(value).replaceAll('"', '""')}"`;
+    const csv = [headers, ...values]
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\r\n");
+    const filename = `${chartType}_data_${sourceWorksheet}`.replaceAll(/[^a-z0-9_-]/gi, "_");
+    download(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${filename}.csv`);
+  },
   // The chart is already live on the page, so the Excel "insert a picture" action
   // maps to handing the user the same image as a file.
   addImage: () => downloadSvg(),
@@ -280,7 +321,7 @@ interface ResizeOptions {
 function makeResizable(handle: HTMLElement, target: HTMLElement, options: ResizeOptions): void {
   const clamp = (value: number) => Math.min(options.max, Math.max(options.min, value));
 
-  const stored = Number(localStorage.getItem(options.storageKey));
+  const stored = Number(storedValue(options.storageKey));
   // Tracks the requested width, not the rendered one: flex-shrink can render the
   // column smaller than what was asked for, and re-basing each drag on the
   // rendered value would make repeated short drags converge short of the real limit.
@@ -304,7 +345,9 @@ function makeResizable(handle: HTMLElement, target: HTMLElement, options: Resize
     document.removeEventListener("pointerup", onPointerUp);
     document.body.classList.remove("resizing");
     target.style.transition = "";
-    localStorage.setItem(options.storageKey, String(requestedWidth));
+    if (isLocalStorageEnabled()) {
+      localStorage.setItem(options.storageKey, String(requestedWidth));
+    }
   };
 
   handle.addEventListener("pointerdown", (event) => {
@@ -341,7 +384,9 @@ function setPanelCollapsed(collapsed: boolean): void {
   togglePanel.title = collapsed ? "Show panel" : "Hide panel";
   togglePanel.setAttribute("aria-label", togglePanel.title);
   try {
-    localStorage.setItem(panelStorageKey, collapsed ? "1" : "0");
+    if (isLocalStorageEnabled()) {
+      localStorage.setItem(panelStorageKey, collapsed ? "1" : "0");
+    }
   } catch {
     // Persistence is optional.
   }
@@ -381,7 +426,32 @@ for (const eventName of ["dragover", "drop"] as const) {
 renderTabs();
 grid.render(activeSheet());
 renderStatus();
-setPanelCollapsed(localStorage.getItem(panelStorageKey) === "1");
+setPanelCollapsed(storedValue(panelStorageKey) === "1");
+
+function syncLocalStorageToggle(): void {
+  localStorageToggle.checked = isLocalStorageEnabled();
+}
+
+localStorageToggle.onchange = () => {
+  setLocalStorageEnabled(localStorageToggle.checked);
+  if (localStorageToggle.checked) {
+    saveWorkbook(workbook);
+  }
+  taskpaneFrame.contentWindow?.postMessage(
+    { type: "excel-control-charts:local-storage", enabled: localStorageToggle.checked },
+    "*"
+  );
+};
+
+window.addEventListener("message", (event) => {
+  if (event.data?.type !== "excel-control-charts:local-storage") {
+    return;
+  }
+  setLocalStorageEnabled(event.data.enabled === true);
+  syncLocalStorageToggle();
+});
+
+syncLocalStorageToggle();
 
 /** Reads one of the inert payloads the build inlines into the page. */
 function payload(id: string): string {

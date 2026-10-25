@@ -104,7 +104,7 @@ function renderSpcDataFields(host: HTMLElement, spcSettings: spcSettingsValueTyp
     createSelectField({
       id: "spc-split-on-click",
       label: "Split Limits on Click",
-      title: "Split Limits on Click",
+      title: "In the preview, click a data point to recalculate limits before and after it. Created Excel charts are static images.",
       value: String(spcSettings.spc.split_on_click),
       options: [
         { value: "false", text: "Off" },

@@ -6,7 +6,7 @@ import { runBuild, watchAndRebuild } from "./build";
 
 const distRoot = path.join(process.cwd(), "dist");
 // Set from the "config" block in package.json, which the runner exports as npm_package_config_*.
-const port = Number(process.env.npm_package_config_dev_server_port) || 3100;
+const port = Number(process.env.PORT || process.env.npm_package_config_dev_server_port) || 3100;
 
 // Only key/cert: passing the `ca` from getHttpsServerOptions makes Bun.serve request a client certificate.
 async function getCertificate(): Promise<{ key: Buffer; cert: Buffer }> {

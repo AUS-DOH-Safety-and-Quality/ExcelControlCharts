@@ -129,7 +129,10 @@ function makeSelectionManager(): powerbi.extensibility.ISelectionManager {
   };
 }
 
-function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
+function makeConstructorArgs(
+  element: HTMLElement,
+  onPersistProperties?: (properties: powerbi.VisualObjectInstancesToPersist) => void
+): VisualConstructorOptions {
   return {
     element: element,
     host: {
@@ -174,7 +177,7 @@ function makeConstructorArgs(element: HTMLElement): VisualConstructorOptions {
         getColor: () => ({}) as IColorInfo,
         reset: () => ({}) as IColorPalette,
       },
-      persistProperties: () => {},
+      persistProperties: (properties) => onPersistProperties?.(properties),
       applyJsonFilter: () => {},
       tooltipService: makeTooltipService(element),
       telemetry: {} as powerbi.extensibility.ITelemetryService,
@@ -263,7 +266,8 @@ function makeUpdateValues(
   rawData: rawDataType,
   inputSettings: spcDefaultSettingsType | funnelDefaultSettingsType,
   aggregations: Record<string, string>,
-  categoryIsTemporal = false
+  categoryIsTemporal = false,
+  metadataObjects: powerbi.DataViewObjects = {}
 ): VisualUpdateOptions {
   const dataGrouped: Array<{ category: string | Date | null; rows: rawDataType }> = [];
   const groupIndexes = new Map<string, number>();
@@ -323,7 +327,7 @@ function makeUpdateValues(
   return {
     dataViews: [
       {
-        metadata: {} as powerbi.DataViewMetadata,
+        metadata: { objects: metadataObjects } as powerbi.DataViewMetadata,
         categorical: {
           categories: [categories],
           values: values as DataViewValueColumns,

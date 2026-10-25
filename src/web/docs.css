@@ -1,0 +1,96 @@
+:root {
+    --ink: #14273a;
+    --muted: #526477;
+    --surface: #ffffff;
+    --canvas: #edf4f3;
+    --line: #c9d8d7;
+    --teal: #0d6c72;
+    --teal-dark: #084a53;
+    --amber: #d88a20;
+    --sans: "Segoe UI", Candara, "Helvetica Neue", sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; color: var(--ink); background: var(--canvas); font-family: var(--sans); line-height: 1.58; }
+a { color: var(--teal-dark); text-underline-offset: 3px; }
+a:hover { color: var(--amber); }
+
+.site-header { min-height: 74px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px max(24px, calc((100% - 1120px) / 2)); border-bottom: 1px solid var(--line); background: var(--surface); }
+.brand { display: inline-flex; align-items: center; gap: 11px; color: var(--ink); font-weight: 700; font-size: 18px; text-decoration: none; }
+.brand img { border-radius: 7px; }
+.open-app { padding: 7px 13px; border: 1px solid var(--teal); background: var(--teal); color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; }
+.open-app:hover { background: var(--teal-dark); color: #fff; }
+
+main { max-width: 1120px; margin: 0 auto; padding: 0 24px 64px; }
+.intro { padding: 74px 0 58px; max-width: 760px; }
+.eyebrow { margin: 0 0 9px; color: var(--teal); font-size: 12px; font-weight: 750; letter-spacing: 1.2px; text-transform: uppercase; }
+h1, h2, h3 { line-height: 1.18; }
+h1, h2 { font-family: var(--serif); }
+h1 { max-width: 720px; margin: 0; font-size: 48px; font-weight: 700; letter-spacing: 0; }
+.lede { max-width: 670px; margin: 20px 0 26px; color: var(--muted); font-size: 19px; }
+.jump-links { display: flex; flex-wrap: wrap; gap: 10px; }
+.jump-links a { padding: 7px 11px; border: 1px solid var(--line); background: var(--surface); font-size: 14px; font-weight: 600; text-decoration: none; }
+.tutorial-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.tutorial-card { padding: 30px; border-top: 5px solid var(--teal); background: var(--surface); box-shadow: 0 1px 0 rgba(20, 39, 58, 0.08); }
+.tutorial-card h2 { margin: 0; font-size: 32px; }
+.tutorial-card p:not(.eyebrow) { margin: 17px 0 24px; color: var(--muted); }
+.tutorial-link { color: var(--teal-dark); font-weight: 700; }
+
+.guide-section { padding: 42px 0; border-top: 1px solid var(--line); }
+.section-heading { margin-bottom: 24px; }
+h2 { margin: 0; font-size: 32px; }
+h3 { margin: 0 0 10px; color: var(--teal-dark); font-size: 17px; }
+.steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin: 0; padding: 0; list-style: none; counter-reset: steps; }
+.steps li { min-height: 175px; padding: 18px 16px; border-top: 4px solid var(--teal); background: var(--surface); box-shadow: 0 1px 0 rgba(20, 39, 58, 0.08); font-size: 14px; counter-increment: steps; }
+.steps li::before { content: "0" counter(steps); display: block; margin-bottom: 14px; color: var(--amber); font-family: var(--serif); font-size: 24px; font-weight: 700; }
+.steps strong { color: var(--ink); }
+.note { margin-top: 24px; padding: 15px 18px; border-left: 4px solid var(--amber); background: #fff7e9; font-size: 14px; }
+.two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; }
+.two-column > div { padding: 23px 24px; border: 1px solid var(--line); background: var(--surface); }
+.two-column p { margin: 0; color: var(--muted); }
+.tutorial-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; align-items: start; }
+.tutorial-nav { position: sticky; top: 20px; padding: 17px; border: 1px solid var(--line); background: var(--surface); }
+.tutorial-nav p { margin: 0 0 9px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
+.tutorial-nav a { display: block; padding: 6px 0; font-size: 14px; text-decoration: none; }
+.tutorial-content section { padding: 0 0 36px; margin-bottom: 36px; border-bottom: 1px solid var(--line); }
+.tutorial-content h2 { margin-bottom: 17px; }
+.tutorial-content h3 { margin-top: 25px; }
+.tutorial-content p { max-width: 720px; }
+.tutorial-media { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; margin: 26px 0 8px; }
+.tutorial-media figure { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 8px 20px rgba(20, 39, 58, 0.09); }
+.tutorial-media figure.tall-screenshot { max-width: 345px; justify-self: center; }
+.tutorial-media img { display: block; width: 100%; height: auto; border: 1px solid color-mix(in srgb, var(--line) 75%, var(--ink)); }
+.tutorial-media figcaption { padding: 9px 3px 1px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+.tutorial-content .steps { grid-template-columns: 1fr; gap: 10px; }
+.tutorial-content .steps li { min-height: 0; display: grid; grid-template-columns: 40px 1fr; gap: 13px; align-items: start; padding: 16px; }
+.tutorial-content .steps li::before { margin: 0; }
+ul { margin: 0; padding-left: 20px; }
+li + li { margin-top: 7px; }
+code { padding: 1px 4px; background: #dcebea; color: var(--teal-dark); font-family: Consolas, monospace; font-size: 0.9em; }
+footer { display: flex; flex-wrap: wrap; gap: 14px 24px; padding: 24px max(24px, calc((100% - 1120px) / 2)); color: #dbe8e8; background: var(--ink); font-size: 14px; }
+footer span { margin-right: auto; font-weight: 700; }
+footer a { color: #dbe8e8; }
+
+@media (max-width: 850px) {
+    h1 { font-size: 40px; }
+    .steps { grid-template-columns: repeat(2, 1fr); }
+    .tutorial-layout { grid-template-columns: 1fr; gap: 24px; }
+    .tutorial-nav { position: static; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+    .tutorial-nav p { width: 100%; }
+    .steps li { min-height: 0; }
+}
+
+@media (max-width: 560px) {
+    .site-header { padding-inline: 18px; }
+    .site-header img { width: 36px; height: 36px; }
+    main { padding-inline: 18px; }
+    .intro { padding: 50px 0 42px; }
+    h1 { font-size: 34px; }
+    .lede { font-size: 17px; }
+    .steps, .two-column, .tutorial-cards, .tutorial-media { grid-template-columns: 1fr; }
+    .guide-section { padding: 32px 0; }
+    h2 { font-size: 28px; }
+    footer { padding-inline: 18px; }
+}
